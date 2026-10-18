@@ -3,7 +3,11 @@ import { useState } from "react";
 function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
+    const [resumeName, setResumeName] = useState(
+  "Rohini_Ramasheshu_Resume.pdf"
+);
 
+const [resumeMessage, setResumeMessage] = useState("");
   const [profile, setProfile] = useState({
     name: "Rohini Ramasheshu",
     email: "rohini@example.com",
@@ -18,6 +22,21 @@ function ProfilePage() {
       [field]: value,
     }));
   }
+function handleResumeUpload(event) {
+  const file = event.target.files[0];
+
+  if (!file) {
+    return;
+  }
+
+  if (file.type !== "application/pdf") {
+    setResumeMessage("Please upload a PDF resume.");
+    return;
+  }
+
+  setResumeName(file.name);
+  setResumeMessage(`${file.name} selected successfully.`);
+}
 
   function saveProfile(event) {
     event.preventDefault();
@@ -138,10 +157,24 @@ function ProfilePage() {
 
       <div className="profile-card resume-card">
         <p className="eyebrow">RESUME</p>
-        <h2>Rohini_Ramasheshu_Resume.pdf</h2>
-        <p>Uploaded resume · Updated recently</p>
+        <h2>{resumeName}</h2>
+<p>Uploaded resume · Updated recently</p>
 
-        <button className="secondary-button">Upload new resume</button>
+<input
+  id="resume-upload"
+  type="file"
+  accept=".pdf,application/pdf"
+  onChange={handleResumeUpload}
+  hidden
+/>
+
+<label htmlFor="resume-upload" className="secondary-button upload-label">
+  Upload new resume
+</label>
+
+{resumeMessage && (
+  <p className="upload-message">{resumeMessage}</p>
+)}
       </div>
 
       <div className="profile-card">

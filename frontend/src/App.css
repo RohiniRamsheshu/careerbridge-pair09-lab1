@@ -798,3 +798,13 @@ h2 {
     grid-template-columns: 1fr;
   }
 }
+.upload-label {
+  display: inline-block;
+  cursor: pointer;
+}
+
+.upload-message {
+  width: 100%;
+  color: #385322 !important;
+  font-weight: bold;
+}
