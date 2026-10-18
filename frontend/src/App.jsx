@@ -5,7 +5,7 @@ import AssistantPage from "./pages/AssistantPage.jsx";
 import EventsPage from "./pages/EventsPage.jsx";
 import CompanyPage from "./pages/CompanyPage.jsx";
 import SafetyPage from "./pages/SafetyPage.jsx";
-
+import ProfilePage from "./pages/ProfilePage.jsx";
 function Layout({ children }) {
   const location = useLocation();
   const isCompany = location.pathname.startsWith("/company");
@@ -23,10 +23,11 @@ function Layout({ children }) {
           <NavLink to="/assistant">Assistant</NavLink>
           <NavLink to="/company">Company</NavLink>
           <NavLink to="/safety">Safety</NavLink>
+          <NavLink to="/profile">Profile</NavLink>
         </nav>
 
         <div className="profile">
-          <strong>Rohini R.</strong>
+          <strong>Rohini Ramasheshu.</strong>
           <span>{isCompany ? "Company" : "Student"}</span>
         </div>
       </aside>
@@ -150,6 +151,7 @@ function App() {
           <Route path="/assistant" element={<AssistantPage />} /> 
           <Route path="/company" element={<CompanyPage />} />
           <Route path="/safety" element={<SafetyPage />} />      
+           <Route path="/profile" element={<ProfilePage />} />
            </Routes>
       </Layout>
     </BrowserRouter>
