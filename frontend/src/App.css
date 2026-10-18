@@ -680,3 +680,7 @@ h2 {
     gap: 10px;
   }
 }
+.main-content h1 {
+  line-height: 1.15;
+  max-width: 900px;
+}

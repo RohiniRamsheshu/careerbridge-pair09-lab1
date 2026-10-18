@@ -1,11 +1,15 @@
-import { BrowserRouter, NavLink, Route, Routes } from "react-router-dom";
+import { BrowserRouter, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import "./App.css";
 import JobsPage from "./pages/JobsPage.jsx";
 import AssistantPage from "./pages/AssistantPage.jsx";
 import EventsPage from "./pages/EventsPage.jsx";
 import CompanyPage from "./pages/CompanyPage.jsx";
 import SafetyPage from "./pages/SafetyPage.jsx";
+
 function Layout({ children }) {
+  const location = useLocation();
+  const isCompany = location.pathname.startsWith("/company");
+
   return (
     <div className="app">
       <aside className="sidebar">
@@ -23,13 +27,13 @@ function Layout({ children }) {
 
         <div className="profile">
           <strong>Rohini R.</strong>
-          <span>Student</span>
+          <span>{isCompany ? "Company" : "Student"}</span>
         </div>
       </aside>
 
       <main className="main-content">
         <header className="topbar">
-          <span>Student Portal</span>
+          <span>{isCompany ? "Company Portal" : "Student Portal"}</span>
           <button className="logout-button">Log out</button>
         </header>
 
