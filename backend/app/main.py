@@ -348,3 +348,46 @@ def browse_jobs(
 from backend.app.routes.applications import router as applications_router
 
 app.include_router(applications_router)
+@app.get("/company/jobs")
+def get_company_jobs(user=Depends(get_authenticated_user)):
+    if user["role"] != "company":
+        raise HTTPException(status_code=403, detail="Company access required")
+
+    connection = get_connection()
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT
+                j.id,
+                j.title,
+                j.posting_date,
+                j.deadline,
+                j.location,
+                j.salary,
+                j.description,
+                j.category,
+                j.is_remote,
+                COUNT(a.id) AS application_count
+            FROM jobs j
+            LEFT JOIN applications a ON a.job_id = j.id
+            WHERE j.company_user_id = %s
+            GROUP BY
+                j.id,
+                j.title,
+                j.posting_date,
+                j.deadline,
+                j.location,
+                j.salary,
+                j.description,
+                j.category,
+                j.is_remote
+            ORDER BY j.posting_date DESC, j.id DESC
+            """,
+            (user["id"],),
+        )
+        jobs = cursor.fetchall()
+        return {"jobs": jobs, "count": len(jobs)}
+    finally:
+        connection.close()
