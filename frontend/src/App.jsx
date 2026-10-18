@@ -3,6 +3,7 @@ import "./App.css";
 import JobsPage from "./pages/JobsPage.jsx";
 import AssistantPage from "./pages/AssistantPage.jsx";
 import EventsPage from "./pages/EventsPage.jsx";
+import SafetyPage from "./pages/SafetyPage.jsx";
 function Layout({ children }) {
   return (
     <div className="app">
@@ -15,6 +16,7 @@ function Layout({ children }) {
           <NavLink to="/jobs">Jobs</NavLink>
           <NavLink to="/events">Events</NavLink>
           <NavLink to="/assistant">Assistant</NavLink>
+          <NavLink to="/safety">Safety</NavLink>
         </nav>
 
         <div className="profile">
@@ -139,7 +141,8 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/jobs" element={<JobsPage />} />          
           <Route path="/events" element={<EventsPage />} />          
-          <Route path="/assistant" element={<AssistantPage />} />       
+          <Route path="/assistant" element={<AssistantPage />} /> 
+          <Route path="/safety" element={<SafetyPage />} />      
            </Routes>
       </Layout>
     </BrowserRouter>

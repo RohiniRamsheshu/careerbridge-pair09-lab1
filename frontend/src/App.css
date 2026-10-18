@@ -567,3 +567,30 @@ h2 {
     grid-template-columns: 1fr;
   }
 }
+.safety-card {
+  max-width: 800px;
+  background: white;
+  border: 1px solid #e0e9e3;
+  border-radius: 12px;
+  padding: 28px;
+  margin-top: 30px;
+}
+
+.unsafe-text {
+  background: #ffe5e5;
+  border-left: 4px solid #c0392b;
+  padding: 15px;
+  line-height: 1.5;
+}
+
+.safe-result {
+  background: #e6f0d2;
+  border-left: 4px solid #597538;
+  padding: 15px;
+  margin-top: 20px;
+  line-height: 1.5;
+}
+
+.safe-result strong {
+  color: #385322;
+}
