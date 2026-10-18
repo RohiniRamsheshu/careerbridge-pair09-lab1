@@ -1,5 +1,6 @@
 import { BrowserRouter, NavLink, Route, Routes } from "react-router-dom";
 import "./App.css";
+import JobsPage from "./pages/JobsPage.jsx";
 
 function Layout({ children }) {
   return (
@@ -135,8 +136,7 @@ function App() {
       <Layout>
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/jobs" element={<Jobs />} />
-          <Route path="/events" element={<Events />} />
+          <Route path="/jobs" element={<JobsPage />} />          <Route path="/events" element={<Events />} />
           <Route path="/assistant" element={<Assistant />} />
         </Routes>
       </Layout>

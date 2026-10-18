@@ -71,7 +71,6 @@ nav a.active {
 .profile span {
   color: #a9c1b7;
   margin-top: 5px;
-  text-transform: capitalize;
 }
 
 .main-content {
@@ -186,6 +185,159 @@ h2 {
   padding: 0 22px;
 }
 
+/* Job search styles */
+
+.job-filters {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 25px 0 15px;
+}
+
+.job-filters .search-box {
+  flex: 1;
+  margin: 0;
+}
+
+.job-filters select {
+  padding: 14px;
+  border: 1px solid #cbd8d0;
+  border-radius: 8px;
+  background: white;
+}
+
+.result-count {
+  color: #687b72;
+  margin: 15px 0;
+}
+
+.job-list {
+  display: grid;
+  gap: 16px;
+  max-width: 900px;
+}
+
+.job-card {
+  background: white;
+  border: 1px solid #e0e9e3;
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.job-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.job-card h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.job-company {
+  color: #687b72;
+}
+
+.job-mode {
+  background: #e6f0d2;
+  color: #48632a;
+  height: fit-content;
+  padding: 7px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+}
+
+.skill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0;
+}
+
+.skill-list span {
+  background: #f0f4ef;
+  color: #4f675c;
+  border-radius: 5px;
+  padding: 6px 9px;
+  font-size: 12px;
+}
+
+.job-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.primary-button,
+.secondary-button,
+.saved-button {
+  border: 0;
+  border-radius: 7px;
+  padding: 11px 16px;
+  cursor: pointer;
+}
+
+.primary-button {
+  background: #12352d;
+  color: white;
+  margin-top: 25px;
+}
+
+.secondary-button {
+  background: #edf2ed;
+  color: #23463a;
+}
+
+.saved-button {
+  background: #dceca5;
+  color: #385322;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.job-modal {
+  position: relative;
+  background: white;
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 550px;
+  width: 100%;
+}
+
+.close-button {
+  position: absolute;
+  right: 18px;
+  top: 14px;
+  border: 0;
+  background: transparent;
+  font-size: 28px;
+  cursor: pointer;
+}
+
+.success-message {
+  position: fixed;
+  bottom: 25px;
+  right: 25px;
+  background: #dceca5;
+  color: #385322;
+  padding: 16px 20px;
+  border-radius: 8px;
+}
+
+.success-message button {
+  margin-left: 15px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
 @media (max-width: 800px) {
   .sidebar {
     width: 180px;
@@ -197,5 +349,14 @@ h2 {
 
   .stats {
     grid-template-columns: 1fr;
+  }
+
+  .job-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .job-card-header {
+    flex-direction: column;
   }
 }
