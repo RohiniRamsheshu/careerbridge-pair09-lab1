@@ -3,6 +3,7 @@ import "./App.css";
 import JobsPage from "./pages/JobsPage.jsx";
 import AssistantPage from "./pages/AssistantPage.jsx";
 import EventsPage from "./pages/EventsPage.jsx";
+import CompanyPage from "./pages/CompanyPage.jsx";
 import SafetyPage from "./pages/SafetyPage.jsx";
 function Layout({ children }) {
   return (
@@ -16,6 +17,7 @@ function Layout({ children }) {
           <NavLink to="/jobs">Jobs</NavLink>
           <NavLink to="/events">Events</NavLink>
           <NavLink to="/assistant">Assistant</NavLink>
+          <NavLink to="/company">Company</NavLink>
           <NavLink to="/safety">Safety</NavLink>
         </nav>
 
@@ -142,6 +144,7 @@ function App() {
           <Route path="/jobs" element={<JobsPage />} />          
           <Route path="/events" element={<EventsPage />} />          
           <Route path="/assistant" element={<AssistantPage />} /> 
+          <Route path="/company" element={<CompanyPage />} />
           <Route path="/safety" element={<SafetyPage />} />      
            </Routes>
       </Layout>
