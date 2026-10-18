@@ -1,4 +1,12 @@
-import { BrowserRouter, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+
 import "./App.css";
 import JobsPage from "./pages/JobsPage.jsx";
 import AssistantPage from "./pages/AssistantPage.jsx";
@@ -10,7 +18,7 @@ import LoginPage from "./pages/LoginPage.jsx";
 function Layout({ children }) {
   const location = useLocation();
   const isCompany = location.pathname.startsWith("/company");
-
+  const navigate = useNavigate();
   return (
     <div className="app">
       <aside className="sidebar">
@@ -36,8 +44,12 @@ function Layout({ children }) {
       <main className="main-content">
         <header className="topbar">
           <span>{isCompany ? "Company Portal" : "Student Portal"}</span>
-          <button className="logout-button">Log out</button>
-        </header>
+          <button
+          className="logout-button"
+          onClick={() => navigate("/login")}
+>
+  Log out
+</button>        </header>
 
         {children}
       </main>
