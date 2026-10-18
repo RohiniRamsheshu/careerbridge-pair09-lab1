@@ -1,6 +1,7 @@
 import { BrowserRouter, NavLink, Route, Routes } from "react-router-dom";
 import "./App.css";
 import JobsPage from "./pages/JobsPage.jsx";
+import AssistantPage from "./pages/AssistantPage.jsx";
 import EventsPage from "./pages/EventsPage.jsx";
 function Layout({ children }) {
   return (
@@ -137,8 +138,9 @@ function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/jobs" element={<JobsPage />} />          
-          <Route path="/events" element={<EventsPage />} />          <Route path="/assistant" element={<Assistant />} />
-        </Routes>
+          <Route path="/events" element={<EventsPage />} />          
+          <Route path="/assistant" element={<AssistantPage />} />       
+           </Routes>
       </Layout>
     </BrowserRouter>
   );

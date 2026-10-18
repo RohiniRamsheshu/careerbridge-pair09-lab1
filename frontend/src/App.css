@@ -465,3 +465,105 @@ h2 {
     flex-direction: column;
   }
 }
+.assistant-layout {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 20px;
+  max-width: 1050px;
+}
+
+.assistant-layout .chat-card {
+  max-width: none;
+  margin-top: 0;
+}
+
+.message-list {
+  display: grid;
+  gap: 14px;
+  min-height: 300px;
+  max-height: 450px;
+  overflow-y: auto;
+  margin-bottom: 20px;
+}
+
+.chat-message {
+  max-width: 80%;
+  padding: 14px 16px;
+  border-radius: 12px;
+}
+
+.chat-message.assistant {
+  background: #e6f0d2;
+}
+
+.chat-message.user {
+  background: #12352d;
+  color: white;
+  justify-self: end;
+}
+
+.chat-message p {
+  margin: 6px 0 0;
+  line-height: 1.5;
+}
+
+.message-label {
+  font-size: 12px;
+  font-weight: bold;
+  opacity: 0.7;
+}
+
+.suggestion-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 20px 0;
+}
+
+.suggestion-button {
+  background: #edf2ed;
+  color: #23463a;
+  border: 0;
+  border-radius: 20px;
+  padding: 9px 12px;
+  cursor: pointer;
+}
+
+.confirmation-card {
+  background: #fff5ce;
+  border: 1px solid #e6cf78;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.confirmation-card p {
+  color: #665522;
+}
+
+.confirmation-card .primary-button {
+  margin-top: 5px;
+}
+
+.assistant-info {
+  background: #dceca5;
+  border-radius: 12px;
+  padding: 25px;
+  height: fit-content;
+}
+
+.assistant-info .eyebrow {
+  color: #597538;
+}
+
+.assistant-info ul {
+  padding-left: 20px;
+  line-height: 2;
+  color: #4c6337;
+}
+
+@media (max-width: 800px) {
+  .assistant-layout {
+    grid-template-columns: 1fr;
+  }
+}
