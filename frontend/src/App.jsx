@@ -6,6 +6,7 @@ import EventsPage from "./pages/EventsPage.jsx";
 import CompanyPage from "./pages/CompanyPage.jsx";
 import SafetyPage from "./pages/SafetyPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
+import LoginPage from "./pages/LoginPage.jsx";
 function Layout({ children }) {
   const location = useLocation();
   const isCompany = location.pathname.startsWith("/company");
@@ -152,6 +153,7 @@ function App() {
           <Route path="/company" element={<CompanyPage />} />
           <Route path="/safety" element={<SafetyPage />} />      
            <Route path="/profile" element={<ProfilePage />} />
+           <Route path="/login" element={<LoginPage />} />
            </Routes>
       </Layout>
     </BrowserRouter>
