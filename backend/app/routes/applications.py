@@ -118,3 +118,57 @@ def apply_to_job(
     finally:
         cursor.close()
         connection.close()
+
+@router.get("/company/jobs/{job_id}/applicants")
+def get_job_applicants(
+    job_id: int,
+    user=Depends(get_authenticated_user),
+):
+    if user["role"] != "company":
+        raise HTTPException(status_code=403, detail="Company access required")
+
+    connection = get_connection()
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+
+        cursor.execute(
+            "SELECT id FROM jobs WHERE id = %s AND company_user_id = %s",
+            (job_id, user["id"]),
+        )
+
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        cursor.execute(
+            """
+            SELECT
+                a.id AS application_id,
+                a.job_id,
+                a.student_user_id,
+                u.name,
+                u.email,
+                a.resume_path,
+                a.status,
+                a.applied_at,
+                sp.college,
+                sp.degree,
+                sp.major,
+                sp.graduation_year,
+                sp.cgpa,
+                sp.experience
+            FROM applications a
+            JOIN users u ON u.id = a.student_user_id
+            LEFT JOIN student_profiles sp ON sp.user_id = a.student_user_id
+            WHERE a.job_id = %s
+            ORDER BY a.applied_at DESC, a.id DESC
+            """,
+            (job_id,),
+        )
+
+        applicants = cursor.fetchall()
+        return {"applicants": applicants, "count": len(applicants)}
+
+    finally:
+        cursor.close()
+        connection.close()
