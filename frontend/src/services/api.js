@@ -1,13 +1,20 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:9090";
 
+
+
+
 async function request(path, options = {}) {
+  const { headers = {}, ...rest } = options;
+  const token = localStorage.getItem("access_token");
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...rest,
     headers: {
       "Content-Type": "application/json",
-      ...(options.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...headers,
     },
-    ...options,
   });
 
   if (!response.ok) {
@@ -18,6 +25,26 @@ async function request(path, options = {}) {
   return response.status === 204 ? null : response.json();
 }
 
+export async function login(email, password) {
+  const data = await request("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+
+  localStorage.setItem("access_token", data.access_token);
+  return data;
+}
+
+export function logout() {
+  localStorage.removeItem("access_token");
+}
+
+export function updateStudentProfile(profile) {
+  return request("/student/profile", {
+    method: "PUT",
+    body: JSON.stringify(profile),
+  });
+}
 export function getJobs(filters = {}) {
   const params = new URLSearchParams();
 
@@ -39,3 +66,4 @@ export function getJob(jobId) {
 export function getEvents() {
   return request("/events?limit=50&offset=0");
 }
+

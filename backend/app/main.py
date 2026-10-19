@@ -7,7 +7,6 @@ from uuid import uuid4
 
 import bcrypt
 import mysql.connector
-from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from jose import jwt
@@ -16,14 +15,23 @@ from pydantic import BaseModel, EmailStr, Field
 from backend.app.database import get_connection
 from backend.app.auth import get_authenticated_user
 from backend.app.routes.applications import router as applications_router
+from dotenv import load_dotenv
 
 load_dotenv()
+
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+
+if not JWT_SECRET_KEY:
+    raise RuntimeError("JWT_SECRET_KEY is missing from the root .env file")
+
+JWT_SECRET = JWT_SECRET_KEY
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 
 app = FastAPI(title="Handshake Lab 1 API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -31,8 +39,7 @@ app.add_middleware(
 
 app.include_router(applications_router)
 
-JWT_SECRET = os.getenv("JWT_SECRET")
-JWT_ALGORITHM = "HS256"
+
 UPLOAD_DIR = Path("backend/uploads")
 RESUME_DIR = UPLOAD_DIR / "resumes"
 PROFILE_DIR = UPLOAD_DIR / "profiles"

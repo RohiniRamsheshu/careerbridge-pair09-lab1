@@ -1,13 +1,17 @@
 import { useState } from "react";
+import { updateStudentProfile } from "../services/api.js";
 
 function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
-    const [resumeName, setResumeName] = useState(
-  "Rohini_Ramasheshu_Resume.pdf"
-);
+  const [profileError, setProfileError] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
 
-const [resumeMessage, setResumeMessage] = useState("");
+  const [resumeName, setResumeName] = useState(
+    "Rohini_Ramasheshu_Resume.pdf"
+  );
+  const [resumeMessage, setResumeMessage] = useState("");
+
   const [profile, setProfile] = useState({
     name: "Rohini Ramasheshu",
     email: "rohini@example.com",
@@ -22,32 +26,65 @@ const [resumeMessage, setResumeMessage] = useState("");
       [field]: value,
     }));
   }
-function handleResumeUpload(event) {
-  const file = event.target.files[0];
 
-  if (!file) {
-    return;
+  function handleResumeUpload(event) {
+    const file = event.target.files[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (file.type !== "application/pdf") {
+      setResumeMessage("Please upload a PDF resume.");
+      return;
+    }
+
+    setResumeName(file.name);
+    setResumeMessage(`${file.name} selected successfully.`);
   }
 
-  if (file.type !== "application/pdf") {
-    setResumeMessage("Please upload a PDF resume.");
-    return;
-  }
-
-  setResumeName(file.name);
-  setResumeMessage(`${file.name} selected successfully.`);
-}
-
-  function saveProfile(event) {
+  async function saveProfile(event) {
     event.preventDefault();
-    setEditing(false);
-    setSaved(true);
+
+    setSavingProfile(true);
+    setProfileError("");
+    setSaved(false);
+
+    const [city = "San Jose"] = profile.location.split(",");
+
+    const profileData = {
+      date_of_birth: "2002-05-15",
+      city: city.trim(),
+      state: "CA",
+      country: "USA",
+      career_objective: "Seeking a software engineering internship",
+      college: "San Jose State University",
+      degree: "MS",
+      major: "Applied Data Intelligence",
+      graduation_year: 2027,
+      cgpa: 3.3,
+      experience: "Student",
+      phone: "4085550100",
+    };
+
+    try {
+      await updateStudentProfile(profileData);
+
+      setEditing(false);
+      setSaved(true);
+    } catch (error) {
+      setProfileError(error.message);
+    } finally {
+      setSavingProfile(false);
+    }
   }
 
   return (
     <section>
       <p className="eyebrow">MY PROFILE</p>
+
       <h1>Student Profile</h1>
+
       <p className="subtitle">
         Manage your information and professional details.
       </p>
@@ -59,16 +96,27 @@ function handleResumeUpload(event) {
         </div>
       )}
 
+      {profileError && (
+        <div className="error-message">
+          Profile update failed: {profileError}
+        </div>
+      )}
+
       <div className="profile-layout">
         <div className="profile-card">
           <div className="profile-avatar">RR</div>
+
           <h2>{profile.name}</h2>
           <p>{profile.program}</p>
           <p>{profile.location}</p>
 
           <button
             className="primary-button"
-            onClick={() => setEditing(true)}
+            onClick={() => {
+              setEditing(true);
+              setSaved(false);
+              setProfileError("");
+            }}
           >
             Edit profile
           </button>
@@ -107,6 +155,7 @@ function handleResumeUpload(event) {
                   onChange={(event) =>
                     updateField("location", event.target.value)
                   }
+                  placeholder="San Jose, CA"
                 />
               </label>
 
@@ -121,14 +170,22 @@ function handleResumeUpload(event) {
               </label>
 
               <div className="profile-actions">
-                <button className="primary-button" type="submit">
-                  Save changes
+                <button
+                  className="primary-button"
+                  type="submit"
+                  disabled={savingProfile}
+                >
+                  {savingProfile ? "Saving..." : "Save changes"}
                 </button>
 
                 <button
                   className="secondary-button"
                   type="button"
-                  onClick={() => setEditing(false)}
+                  onClick={() => {
+                    setEditing(false);
+                    setProfileError("");
+                  }}
+                  disabled={savingProfile}
                 >
                   Cancel
                 </button>
@@ -157,28 +214,33 @@ function handleResumeUpload(event) {
 
       <div className="profile-card resume-card">
         <p className="eyebrow">RESUME</p>
+
         <h2>{resumeName}</h2>
-<p>Uploaded resume · Updated recently</p>
+        <p>Uploaded resume · Updated recently</p>
 
-<input
-  id="resume-upload"
-  type="file"
-  accept=".pdf,application/pdf"
-  onChange={handleResumeUpload}
-  hidden
-/>
+        <input
+          id="resume-upload"
+          type="file"
+          accept=".pdf,application/pdf"
+          onChange={handleResumeUpload}
+          hidden
+        />
 
-<label htmlFor="resume-upload" className="secondary-button upload-label">
-  Upload new resume
-</label>
+        <label
+          htmlFor="resume-upload"
+          className="secondary-button upload-label"
+        >
+          Upload new resume
+        </label>
 
-{resumeMessage && (
-  <p className="upload-message">{resumeMessage}</p>
-)}
+        {resumeMessage && (
+          <p className="upload-message">{resumeMessage}</p>
+        )}
       </div>
 
       <div className="profile-card">
         <p className="eyebrow">SKILLS</p>
+
         <div className="skill-list">
           {profile.skills.map((skill) => (
             <span key={skill}>{skill}</span>
