@@ -9,6 +9,9 @@ export function createSavedItem(itemType, itemId) {
     }),
   });
 }
+export function getStudentDashboard() {
+  return request("/dashboard/student");
+}
 
 export function registerForEvent(eventId) {
   return request(`/events/${eventId}/register`, {

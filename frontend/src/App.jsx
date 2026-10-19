@@ -7,6 +7,13 @@ import {
   useNavigate,
 } from "react-router-dom";
 
+import { useEffect, useState } from "react";
+import {
+  getJobs,
+  getStudentDashboard,
+  logout,
+} from "./services/api.js";
+
 import "./App.css";
 import JobsPage from "./pages/JobsPage.jsx";
 import AssistantPage from "./pages/AssistantPage.jsx";
@@ -46,8 +53,10 @@ function Layout({ children }) {
           <span>{isCompany ? "Company Portal" : "Student Portal"}</span>
           <button
           className="logout-button"
-          onClick={() => navigate("/login")}
->
+onClick={() => {
+  logout();
+  navigate("/login");
+}}>
   Log out
 </button>        </header>
 
