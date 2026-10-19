@@ -16,6 +16,8 @@ from pydantic import BaseModel, EmailStr, Field
 from backend.app.database import get_connection
 from backend.app.auth import get_authenticated_user
 from backend.app.routes.applications import router as applications_router
+from backend.app.agent import run_assistant
+from backend.app.confirmation import approve_action
 
 load_dotenv()
 
@@ -1228,3 +1230,41 @@ def company_dashboard(user=Depends(get_authenticated_user)):
             (user["id"],),
         ),
     }
+from backend.app.agent import run_assistant
+
+
+class AssistantChatRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=4000)
+    conversation_id: str | None = Field(default=None, max_length=100)
+
+class AssistantConfirmationRequest(BaseModel):
+    action_id: str = Field(min_length=20, max_length=200)
+    approved: bool
+
+_assistant_conversations = {}
+
+@app.post("/assistant/chat", tags=["Assistant"])
+def assistant_chat(
+    request: AssistantChatRequest,
+    user=Depends(get_authenticated_user),
+):
+    require_role(user, "student")
+    conversation_id = request.conversation_id or str(uuid4())
+    conversation = _assistant_conversations.setdefault((user["id"], conversation_id), [])
+    answer = run_assistant(user_message=request.message, conversation=conversation, user=user, query_db=query_db)
+    return {"answer": answer, "conversation_id": conversation_id}
+
+@app.post("/assistant/confirm", tags=["Assistant"])
+def assistant_confirm(
+    request: AssistantConfirmationRequest,
+    user=Depends(get_authenticated_user),
+):
+    require_role(user, "student")
+    action, error = approve_action(request.action_id, user["id"], request.approved)
+    if error == "cancelled": return {"status": "cancelled", "message": "Save cancelled; no database write was made."}
+    if error: raise HTTPException(status_code=400, detail=error)
+    args=action.arguments; item_type=args["item_type"]; item_id=args["item_id"]; table="jobs" if item_type == "job" else "events"
+    if not query_db(f"SELECT id FROM {table} WHERE id = %s", (item_id,), fetch="one"): raise HTTPException(status_code=404, detail="The proposed item no longer exists")
+    if query_db("SELECT id FROM saved_items WHERE student_user_id = %s AND item_type = %s AND item_id = %s", (user["id"], item_type, item_id), fetch="one"): raise HTTPException(status_code=409, detail="Item already saved")
+    saved_id=query_db("INSERT INTO saved_items (student_user_id, item_type, item_id) VALUES (%s, %s, %s)", (user["id"], item_type, item_id), commit=True)
+    return {"status": "approved", "saved_item_id": saved_id, "message": f"Saved {item_type} {item_id}."}
