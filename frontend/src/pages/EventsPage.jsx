@@ -17,8 +17,7 @@ function formatEventTime(secondsValue) {
   const suffix = hours24 >= 12 ? "PM" : "AM";
   const hours12 = hours24 % 12 || 12;
 
-  const [eventError, setEventError] = useState("");
-const [registering, setRegistering] = useState(false);
+  
 
   return `${hours12}:${String(minutes).padStart(2, "0")} ${suffix}`;
 }
@@ -243,15 +242,16 @@ const [registering, setRegistering] = useState(false);
           Registered for <strong>{registeredEvent.title}</strong>.
           <button onClick={() => setRegisteredEvent(null)}>Dismiss</button>
         </div>
+          )}
+        {eventError && (
+        <div className="error-message">
+          Registration failed: {eventError}
+        </div>
       )}
     </section>
   );
 }
 
-{eventError && (
-  <div className="error-message">
-    Registration failed: {eventError}
-  </div>
-)}
+
 
 export default EventsPage;
