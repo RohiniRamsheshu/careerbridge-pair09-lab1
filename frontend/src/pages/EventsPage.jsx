@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { getEvents } from "../services/api.js";
 import { getEvents, registerForEvent } from "../services/api.js";
 function formatEventDate(dateValue) {
   const [year, month, day] = dateValue.split("-").map(Number);
