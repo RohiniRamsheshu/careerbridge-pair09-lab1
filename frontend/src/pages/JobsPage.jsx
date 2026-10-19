@@ -1,42 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { getJobs } from "../services/api.js";
 
-const jobs = [
-  {
-    id: 1,
-    title: "Data Science Intern",
-    company: "Northstar Analytics",
-    location: "San Jose",
-    mode: "Hybrid",
-    type: "Internship",
-    skills: ["Python", "SQL", "Machine Learning"],
-    description:
-      "Work with analysts and engineers to build dashboards and predictive models for real-world business problems.",
-  },
- {
-  id: 2,
-  title: "Remote Data Science Intern",
-  company: "BlueOrbit Systems",
-  location: "Mountain View",
-  mode: "Remote",
-  type: "Internship",
-  skills: ["Python", "SQL", "Machine Learning"],
-  description:
-    "Work remotely with data scientists to build predictive models, analyze datasets, and support business decisions.",
-},
-  {
-    id: 3,
-    title: "Machine Learning Assistant",
-    company: "Palo Alto Research",
-    location: "Palo Alto",
-    mode: "On-site",
-    type: "Part-time",
-    skills: ["Python", "PyTorch", "Data Analysis"],
-    description:
-      "Assist with machine learning experiments, dataset preparation, and model evaluation.",
-  },
-];
+
 
 function JobsPage() {
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
   const [search, setSearch] = useState("");
   const [location, setLocation] = useState("All");
   const [mode, setMode] = useState("All");
@@ -44,22 +15,52 @@ function JobsPage() {
   const [appliedJob, setAppliedJob] = useState(null);
   const [savedJobs, setSavedJobs] = useState([]);
 
-  const filteredJobs = useMemo(() => {
-    return jobs.filter((job) => {
-      const matchesSearch =
-        job.title.toLowerCase().includes(search.toLowerCase()) ||
-        job.company.toLowerCase().includes(search.toLowerCase()) ||
-        job.skills.join(" ").toLowerCase().includes(search.toLowerCase());
+  useEffect(() => {
+    async function loadJobs() {
+      try {
+        setLoading(true);
+        setError("");
 
-      const matchesLocation =
-        location === "All" || job.location === location;
+        const data = await getJobs();
 
-      const matchesMode = mode === "All" || job.mode === mode;
+        const normalizedJobs = (Array.isArray(data) ? data : []).map(
+          (job) => ({
+            ...job,
+            company: job.company_name || "Unknown company",
+            mode: job.is_remote ? "Remote" : "On-site",
+            type: job.category || "Opportunity",
+            skills: job.skills || [],
+          })
+        );
 
-      return matchesSearch && matchesLocation && matchesMode;
-    });
-  }, [search, location, mode]);
+        setJobs(normalizedJobs);
+      } catch (requestError) {
+        setError(requestError.message || "Unable to load jobs.");
+      } finally {
+        setLoading(false);
+      }
+    }
 
+    loadJobs();
+  }, []);
+const filteredJobs = useMemo(() => {
+  return jobs.filter((job) => {
+    const searchText = search.toLowerCase();
+
+    const matchesSearch =
+      job.title.toLowerCase().includes(searchText) ||
+      job.company.toLowerCase().includes(searchText) ||
+      job.skills.join(" ").toLowerCase().includes(searchText);
+
+    const matchesLocation =
+      location === "All" || job.location === location;
+
+    const matchesMode =
+      mode === "All" || job.mode === mode;
+
+    return matchesSearch && matchesLocation && matchesMode;
+  });
+}, [jobs, search, location, mode]);
   function saveJob(job) {
     const confirmed = window.confirm(
       `Do you want to save "${job.title}" to your profile?`
@@ -117,6 +118,10 @@ function JobsPage() {
           <option value="On-site">On-site</option>
         </select>
       </div>
+
+    {loading && <p className="subtitle">Loading jobs...</p>}
+
+{error && <div className="error-message">{error}</div>}
 
       <p className="result-count">
         {filteredJobs.length} opportunity
