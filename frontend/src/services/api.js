@@ -1,6 +1,14 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:9090";
-
+export function createSavedItem(itemType, itemId) {
+  return request("/saved-items", {
+    method: "POST",
+    body: JSON.stringify({
+      item_type: itemType,
+      item_id: itemId,
+    }),
+  });
+}
 
 export function registerForEvent(eventId) {
   return request(`/events/${eventId}/register`, {

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getJobs } from "../services/api.js";
-
+import { getJobs, createSavedItem } from "../services/api.js";
 
 
 function JobsPage() {
@@ -61,21 +60,27 @@ const filteredJobs = useMemo(() => {
     return matchesSearch && matchesLocation && matchesMode;
   });
 }, [jobs, search, location, mode]);
-  function saveJob(job) {
-    const confirmed = window.confirm(
-      `Do you want to save "${job.title}" to your profile?`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setSavedJobs((current) =>
-      current.includes(job.id)
-        ? current.filter((id) => id !== job.id)
-        : [...current, job.id]
-    );
+ async function saveJob(job) {
+  if (savedJobs.includes(job.id)) {
+    return;
   }
+
+  const confirmed = window.confirm(
+    `Do you want to save "${job.title}" to your profile?`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    await createSavedItem("job", job.id);
+
+    setSavedJobs((current) => [...current, job.id]);
+  } catch (error) {
+    window.alert(`Could not save job: ${error.message}`);
+  }
+}
 
   function applyToJob(job) {
     setAppliedJob(job);

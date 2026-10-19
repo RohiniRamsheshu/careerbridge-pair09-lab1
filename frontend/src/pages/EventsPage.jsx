@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getEvents, registerForEvent } from "../services/api.js";
-function formatEventDate(dateValue) {
+import { getEvents, registerForEvent, createSavedItem } from "../services/api.js";function formatEventDate(dateValue) {
   const [year, month, day] = dateValue.split("-").map(Number);
 
   return new Date(year, month - 1, day).toLocaleDateString("en-US", {
@@ -82,22 +81,27 @@ function EventsPage() {
     return matchesSearch && matchesLocation;
   });
 }, [events, search, location]);
-  function saveEvent(event) {
-    const confirmed = window.confirm(
-      `Do you want to save "${event.title}" to your profile?`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setSavedEvents((current) =>
-      current.includes(event.id)
-        ? current.filter((id) => id !== event.id)
-        : [...current, event.id]
-    );
+  async function saveEvent(event) {
+  if (savedEvents.includes(event.id)) {
+    return;
   }
 
+  const confirmed = window.confirm(
+    `Do you want to save "${event.title}" to your profile?`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    await createSavedItem("event", event.id);
+
+    setSavedEvents((current) => [...current, event.id]);
+  } catch (error) {
+    window.alert(`Could not save event: ${error.message}`);
+  }
+}
   async function handleRegisterForEvent(event) {
   setRegistering(true);
   setEventError("");
