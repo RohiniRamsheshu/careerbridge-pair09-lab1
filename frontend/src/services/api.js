@@ -2,7 +2,11 @@ const API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:9090";
 
 
-
+export function registerForEvent(eventId) {
+  return request(`/events/${eventId}/register`, {
+    method: "POST",
+  });
+}
 
 async function request(path, options = {}) {
   const { headers = {}, ...rest } = options;

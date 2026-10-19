@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getEvents } from "../services/api.js";
+import { getEvents, registerForEvent } from "../services/api.js";
 function formatEventDate(dateValue) {
   const [year, month, day] = dateValue.split("-").map(Number);
 
@@ -17,6 +18,9 @@ function formatEventTime(secondsValue) {
 
   const suffix = hours24 >= 12 ? "PM" : "AM";
   const hours12 = hours24 % 12 || 12;
+
+  const [eventError, setEventError] = useState("");
+const [registering, setRegistering] = useState(false);
 
   return `${hours12}:${String(minutes).padStart(2, "0")} ${suffix}`;
 }
@@ -95,10 +99,20 @@ function EventsPage() {
     );
   }
 
-  function registerForEvent(event) {
+  async function handleRegisterForEvent(event) {
+  setRegistering(true);
+  setEventError("");
+
+  try {
+    await registerForEvent(event.id);
     setRegisteredEvent(event);
     setSelectedEvent(null);
+  } catch (error) {
+    setEventError(error.message);
+  } finally {
+    setRegistering(false);
   }
+}
 
   return (
     <section>
@@ -208,11 +222,12 @@ function EventsPage() {
             </p>
 
             <button
-              className="primary-button"
-              onClick={() => registerForEvent(selectedEvent)}
-            >
-              Register
-            </button>
+  className="primary-button"
+  onClick={() => handleRegisterForEvent(selectedEvent)}
+  disabled={registering}
+>
+  {registering ? "Registering..." : "Register"}
+</button>
           </div>
         </div>
       )}
@@ -226,5 +241,11 @@ function EventsPage() {
     </section>
   );
 }
+
+{eventError && (
+  <div className="error-message">
+    Registration failed: {eventError}
+  </div>
+)}
 
 export default EventsPage;
