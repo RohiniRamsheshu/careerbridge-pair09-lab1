@@ -27,6 +27,9 @@ function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [eventError, setEventError] = useState("");
+const [registering, setRegistering] = useState(false);
+
   const [search, setSearch] = useState("");
   const [location, setLocation] = useState("All");
   const [selectedEvent, setSelectedEvent] = useState(null);

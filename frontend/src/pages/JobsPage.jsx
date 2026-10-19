@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { getJobs, createSavedItem } from "../services/api.js";
-
+import {
+  getJobs,
+  createSavedItem,
+  getSavedItems,
+  deleteSavedItem,
+} from "../services/api.js";
 
 function JobsPage() {
   const [jobs, setJobs] = useState([]);
@@ -12,8 +16,33 @@ function JobsPage() {
   const [mode, setMode] = useState("All");
   const [selectedJob, setSelectedJob] = useState(null);
   const [appliedJob, setAppliedJob] = useState(null);
-  const [savedJobs, setSavedJobs] = useState([]);
+const [savedJobs, setSavedJobs] = useState([]);
+const [savedJobRecords, setSavedJobRecords] = useState({});
 
+
+useEffect(() => {
+  async function loadSavedJobs() {
+    try {
+      const data = await getSavedItems();
+
+      const jobRecords = data.filter(
+        (item) => item.item_type === "job"
+      );
+
+      setSavedJobs(jobRecords.map((item) => item.item_id));
+
+      setSavedJobRecords(
+        Object.fromEntries(
+          jobRecords.map((item) => [item.item_id, item.id])
+        )
+      );
+    } catch (error) {
+      console.error("Could not load saved jobs:", error);
+    }
+  }
+
+  loadSavedJobs();
+}, []);
   useEffect(() => {
     async function loadJobs() {
       try {
@@ -61,12 +90,12 @@ const filteredJobs = useMemo(() => {
   });
 }, [jobs, search, location, mode]);
  async function saveJob(job) {
-  if (savedJobs.includes(job.id)) {
-    return;
-  }
+  const savedItemId = savedJobRecords[job.id];
 
   const confirmed = window.confirm(
-    `Do you want to save "${job.title}" to your profile?`
+    savedItemId
+      ? `Remove "${job.title}" from your saved items?`
+      : `Do you want to save "${job.title}" to your profile?`
   );
 
   if (!confirmed) {
@@ -74,13 +103,37 @@ const filteredJobs = useMemo(() => {
   }
 
   try {
-    await createSavedItem("job", job.id);
+    if (savedItemId) {
+      await deleteSavedItem(savedItemId);
 
-    setSavedJobs((current) => [...current, job.id]);
+      setSavedJobs((current) =>
+        current.filter((id) => id !== job.id)
+      );
+
+      setSavedJobRecords((current) => {
+        const updated = { ...current };
+        delete updated[job.id];
+        return updated;
+      });
+    } else {
+      const savedItem = await createSavedItem("job", job.id);
+
+      setSavedJobs((current) => [...current, job.id]);
+
+      setSavedJobRecords((current) => ({
+        ...current,
+        [job.id]: savedItem.id,
+      }));
+    }
   } catch (error) {
-    window.alert(`Could not save job: ${error.message}`);
+    window.alert(`Could not update saved job: ${error.message}`);
   }
 }
+
+
+
+
+
 
   function applyToJob(job) {
     setAppliedJob(job);

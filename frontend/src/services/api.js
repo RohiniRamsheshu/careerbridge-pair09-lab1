@@ -13,6 +13,16 @@ export function getStudentDashboard() {
   return request("/dashboard/student");
 }
 
+export function getSavedItems() {
+  return request("/saved-items");
+}
+
+export function deleteSavedItem(savedItemId) {
+  return request(`/saved-items/${savedItemId}`, {
+    method: "DELETE",
+  });
+}
+
 export function registerForEvent(eventId) {
   return request(`/events/${eventId}/register`, {
     method: "POST",
