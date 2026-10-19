@@ -1,62 +1,84 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { getEvents } from "../services/api.js";
+function formatEventDate(dateValue) {
+  const [year, month, day] = dateValue.split("-").map(Number);
 
-const events = [
-  {
-    id: 1,
-    title: "Pair 09 Career Mixer",
-    organizer: "CareerBridge",
-    location: "San Jose",
-    date: "October 24, 2026",
-    time: "5:30 PM",
-    type: "Networking",
-    description:
-      "Meet local employers, students, and technology professionals from the Pair 09 region.",
-  },
-  {
-    id: 2,
-    title: "Building Your Technical Resume",
-    organizer: "CareerBridge",
-    location: "Mountain View",
-    date: "November 2, 2026",
-    time: "12:00 PM",
-    type: "Workshop",
-    description:
-      "Learn how to communicate your technical projects, skills, and professional impact.",
-  },
-  {
-    id: 3,
-    title: "Introduction to Machine Learning Careers",
-    organizer: "Palo Alto Research",
-    location: "Palo Alto",
-    date: "November 10, 2026",
-    time: "6:00 PM",
-    type: "Career Talk",
-    description:
-      "Explore career paths, internship opportunities, and skills needed for machine learning roles.",
-  },
-];
+  return new Date(year, month - 1, day).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
+function formatEventTime(secondsValue) {
+  const totalMinutes = Math.floor(Number(secondsValue) / 60);
+  const hours24 = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  const suffix = hours24 >= 12 ? "PM" : "AM";
+  const hours12 = hours24 % 12 || 12;
+
+  return `${hours12}:${String(minutes).padStart(2, "0")} ${suffix}`;
+}
 function EventsPage() {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
   const [search, setSearch] = useState("");
   const [location, setLocation] = useState("All");
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [registeredEvent, setRegisteredEvent] = useState(null);
   const [savedEvents, setSavedEvents] = useState([]);
 
+  useEffect(() => {
+    async function loadEvents() {
+      try {
+        setLoading(true);
+        setError("");
+
+        const data = await getEvents();
+
+        const normalizedEvents = (Array.isArray(data) ? data : []).map(
+          (event) => ({
+            id: event.id,
+            title: event.name,
+            organizer: event.company_name || "CareerBridge",
+            location: event.location || "Location unavailable",
+            date: formatEventDate(event.event_date),
+            time: formatEventTime(event.event_time),
+            type: "Career Event",
+            description: event.description || "",
+            eligibility: event.eligibility || "",
+          })
+        );
+
+        setEvents(normalizedEvents);
+      } catch (requestError) {
+        setError(requestError.message || "Unable to load events.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadEvents();
+  }, []);
+
   const filteredEvents = useMemo(() => {
-    return events.filter((event) => {
-      const matchesSearch =
-        event.title.toLowerCase().includes(search.toLowerCase()) ||
-        event.organizer.toLowerCase().includes(search.toLowerCase()) ||
-        event.type.toLowerCase().includes(search.toLowerCase());
+  return events.filter((event) => {
+    const searchText = search.toLowerCase();
 
-      const matchesLocation =
-        location === "All" || event.location === location;
+    const matchesSearch =
+      event.title.toLowerCase().includes(searchText) ||
+      event.organizer.toLowerCase().includes(searchText) ||
+      event.type.toLowerCase().includes(searchText);
 
-      return matchesSearch && matchesLocation;
-    });
-  }, [search, location]);
+    const matchesLocation =
+      location === "All" || event.location.includes(location);
 
+    return matchesSearch && matchesLocation;
+  });
+}, [events, search, location]);
   function saveEvent(event) {
     const confirmed = window.confirm(
       `Do you want to save "${event.title}" to your profile?`
@@ -104,6 +126,9 @@ function EventsPage() {
           <option value="Palo Alto">Palo Alto</option>
         </select>
       </div>
+      {loading && <p className="subtitle">Loading events...</p>}
+
+{error && <div className="error-message">{error}</div>}
 
       <p className="result-count">
         {filteredEvents.length} event
