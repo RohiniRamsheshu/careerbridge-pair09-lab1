@@ -67,34 +67,87 @@ onClick={() => {
 }
 
 function Dashboard() {
+  const [stats, setStats] = useState({
+    jobs: 0,
+    applications: 0,
+    savedItems: 0,
+  });
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function loadDashboard() {
+      try {
+        const [dashboardData, jobsData] = await Promise.all([
+          getStudentDashboard(),
+          getJobs(),
+        ]);
+
+        const applicationCount = (dashboardData.applications || []).reduce(
+          (total, item) => total + Number(item.count || 0),
+          0
+        );
+
+        setStats({
+          jobs: Array.isArray(jobsData) ? jobsData.length : 0,
+          applications: applicationCount,
+          savedItems: Number(
+            dashboardData.saved_items_count?.count || 0
+          ),
+        });
+      } catch (dashboardError) {
+        setError(dashboardError.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadDashboard();
+  }, []);
+
+  if (loading) {
+    return <p>Loading dashboard...</p>;
+  }
+
   return (
     <section>
       <p className="eyebrow">WELCOME BACK</p>
+
       <h1>Build your next opportunity.</h1>
+
       <p className="subtitle">
         Search jobs, discover events, and connect with Pair 09 employers.
       </p>
 
+      {error && (
+        <div className="error-message">
+          Dashboard failed to load: {error}
+        </div>
+      )}
+
       <div className="stats">
         <div className="stat-card">
           <span>Recommended Jobs</span>
-          <strong>24</strong>
+          <strong>{stats.jobs}</strong>
         </div>
 
         <div className="stat-card">
           <span>Applications</span>
-          <strong>8</strong>
+          <strong>{stats.applications}</strong>
         </div>
 
         <div className="stat-card">
           <span>Saved Items</span>
-          <strong>0</strong>
+          <strong>{stats.savedItems}</strong>
         </div>
       </div>
 
       <div className="welcome-card">
         <p className="eyebrow">PAIR 09 LOCATIONS</p>
+
         <h2>San Jose · Mountain View · Palo Alto</h2>
+
         <p>
           Explore opportunities and events across the local technology
           community.
