@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { updateStudentProfile } from "../services/api.js";
-
+import {
+  updateStudentProfile,
+  uploadResume,
+} from "../services/api.js";
 function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -27,21 +29,28 @@ function ProfilePage() {
     }));
   }
 
-  function handleResumeUpload(event) {
-    const file = event.target.files[0];
+  async function handleResumeUpload(event) {
+  const file = event.target.files[0];
 
-    if (!file) {
-      return;
-    }
-
-    if (file.type !== "application/pdf") {
-      setResumeMessage("Please upload a PDF resume.");
-      return;
-    }
-
-    setResumeName(file.name);
-    setResumeMessage(`${file.name} selected successfully.`);
+  if (!file) {
+    return;
   }
+
+  if (file.type !== "application/pdf") {
+    setResumeMessage("Please upload a PDF resume.");
+    return;
+  }
+
+  setResumeMessage("Uploading resume...");
+
+  try {
+    await uploadResume(file);
+    setResumeName(file.name);
+    setResumeMessage(`${file.name} uploaded successfully.`);
+  } catch (error) {
+    setResumeMessage(`Upload failed: ${error.message}`);
+  }
+}
 
   async function saveProfile(event) {
     event.preventDefault();

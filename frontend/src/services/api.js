@@ -23,10 +23,12 @@ async function request(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...rest,
     headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...headers,
-    },
+  ...(rest.body instanceof FormData
+    ? {}
+    : { "Content-Type": "application/json" }),
+  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  ...headers,
+},
   });
 
   if (!response.ok) {
@@ -35,6 +37,15 @@ async function request(path, options = {}) {
   }
 
   return response.status === 204 ? null : response.json();
+}
+export function uploadResume(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return request("/applications/resume", {
+    method: "POST",
+    body: formData,
+  });
 }
 
 export async function login(email, password) {
