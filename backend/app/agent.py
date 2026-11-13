@@ -1,6 +1,8 @@
 import json
 import logging
+import os
 import re
+from time import perf_counter
 from datetime import date
 
 from backend.app.ai_model import OllamaModel
@@ -9,6 +11,7 @@ from backend.app.confirmation import confirm_action
 logger = logging.getLogger("handshake_agent")
 MAX_ITERATIONS = 6
 MAX_TOOL_CALLS = 12
+FAST_RETRIEVAL_SUMMARY = os.getenv("ASSISTANT_FAST_RETRIEVAL", "1") == "1"
 
 TOOLS = [
     {"type": "function", "function": {"name": "get_student_preferences", "description": "Read the authenticated student's own saved job preferences before personalising a search.", "parameters": {"type": "object", "properties": {}, "required": []}}},
@@ -50,6 +53,121 @@ def _needs_retrieval(text):
     return any(word in lowered for word in ("find", "search", "job", "internship", "event", "company"))
 
 
+CAPABILITY_RESPONSE = (
+    "I help students find real jobs and events, refine searches with follow-up questions, "
+    "and propose saves that require your explicit confirmation before anything is written."
+)
+
+
+def _deterministic_route(user_message, conversation):
+    """Return a safe local route for unambiguous requests, or None for the LLM fallback."""
+    text = re.sub(r"\s+", " ", (user_message or "").strip().lower())
+    if not text:
+        return ("answer", "Please tell me whether you want to search for jobs or events.")
+    if re.search(r"\bwhat (?:do|can) (?:you|u) do\b|\bhow can you help\b|\bhelp\b", text):
+        return ("answer", CAPABILITY_RESPONSE)
+    if re.fullmatch(r"(?:hi|hello|hey|good morning|good afternoon|good evening)(?:[, ]+(?:there|how are you|how's it going|how are things))?[!. ?]*", text):
+        return ("answer", "Hi! I can help you search real jobs and events, refine results, or prepare a save for confirmation.")
+    if re.fullmatch(r"(?:thanks|thank you|thx|ty)[!. ]*", text):
+        return ("answer", "You're welcome. Ask me about jobs or events whenever you're ready.")
+    if re.search(r"\b(?:weather|forecast|temperature)\b", text):
+        return ("answer", "I can't provide live weather information. I can help you search real jobs and events instead.")
+
+    detail_match = re.search(r"(?:details?|more information|tell me about).*?\bjob\s*#?\s*(\d+)", text)
+    if detail_match:
+        return ("get_job_details", {"job_id": int(detail_match.group(1))})
+
+    save_match = re.search(r"\bsave\s+(?:(?:that|this)\s+)?(job|event)\s*#?\s*(\d+)", text)
+    if save_match:
+        return ("save", {"item_type": save_match.group(1), "item_id": int(save_match.group(2))})
+    if re.search(r"\bsave\s+(?:that|this)\s+(?:job|event)\b", text):
+        item_type = "event" if "event" in text else "job"
+        context_pattern = rf"(?:{item_type} ID|{item_type})\s*:?\s*(\d+)"
+        for message in reversed(conversation[:-1]):
+            match = re.search(context_pattern, str(message.get("content", "")), re.IGNORECASE)
+            if match:
+                return ("save", {"item_type": item_type, "item_id": int(match.group(1))})
+        return ("answer", f"Which {item_type} should I save? Please provide its ID.")
+    if re.search(r"\bsave\s+(?:it|this|that)\b", text):
+        candidates = []
+        for message in reversed(conversation[:-1]):
+            content = str(message.get("content", ""))
+            for item_type in ("job", "event"):
+                for match in re.finditer(rf"{item_type}\s+ID\s*:?\s*(\d+)", content, re.IGNORECASE):
+                    candidates.append((item_type, int(match.group(1))))
+            if candidates and message.get("role") == "assistant":
+                break
+        unique = list(dict.fromkeys(candidates))
+        if len(unique) == 1:
+            return ("save", {"item_type": unique[0][0], "item_id": unique[0][1]})
+        return ("answer", "Which specific job or event should I save? Please provide its ID.")
+
+    if re.search(r"\b(?:what are|show|view|tell me)\s+(?:my\s+)?(?:saved\s+)?preferences\b", text):
+        return ("get_student_preferences", {})
+
+    previous_messages = [message for message in conversation[:-1] if message.get("role") == "user"]
+    previous = " ".join(
+        str(message.get("content", ""))
+        for message in reversed(previous_messages)
+    ).lower()
+    is_event = bool(re.search(r"\b(event|events|workshop|workshops|networking|career fair|meetup)\b", text))
+    is_job = bool(re.search(r"\b(job|jobs|internship|internships|opportunit(?:y|ies)|role|roles)\b", text))
+    refinement = bool(re.search(r"\b(only|just|in|near|remote|on[- ]site|under|over|above|below|more|less|refine|narrow|what ab(?:out)?|same for|and)\b", text))
+    prior_route = None
+    if not is_event and not is_job and refinement and previous_messages:
+        prior_route = _deterministic_route(previous_messages[-1].get("content", ""), [])
+        if prior_route and prior_route[0] in {"search_jobs", "search_events"}:
+            is_event = prior_route[0] == "search_events"
+            is_job = prior_route[0] == "search_jobs"
+    if not is_event and not is_job and refinement and re.search(r"\b(job|internship|opportunit|search|find)\b", previous):
+        is_job = True
+    if not is_event and not is_job:
+        if re.search(r"\b(?:messi|ronaldo|sports?|scores?|joke|trivia|unrelated)\b", text):
+            return ("answer", "I can help with real job and event searches, but I don't have live sports, weather, or general trivia data.")
+        return None
+
+    args = {}
+    cities = ("San Jose", "Mountain View", "Palo Alto", "San Francisco", "New York")
+    for city in cities:
+        if city.lower() in text:
+            args["city"] = city
+            break
+    if "remote" in text:
+        args["remote_only"] = True
+    elif "on-site" in text or "onsite" in text:
+        args["remote_only"] = False
+    if "internship" in text or "internships" in text:
+        args["category"] = "internship"
+    if "data science" in text:
+        args["keyword"] = "data science"
+    elif "machine learning" in text:
+        args["keyword"] = "machine learning"
+    date_match = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", text)
+    if date_match:
+        if is_event:
+            args["date_from"] = date_match.group(1)
+            args["date_to"] = date_match.group(1)
+        else:
+            args["deadline_by"] = date_match.group(1)
+    salary_match = re.search(r"(?:at least|over|above|minimum(?: salary)? of?)\s*\$?([0-9]+(?:\.[0-9]+)?)", text)
+    if salary_match and not is_event:
+        args["minimum_salary"] = float(salary_match.group(1))
+    if is_event and "computer science" in text:
+        args["eligibility"] = "computer science"
+    if refinement and previous_messages:
+        prior_route = prior_route or _deterministic_route(previous_messages[-1].get("content", ""), [])
+        if prior_route and prior_route[0] in {"search_jobs", "search_events"}:
+            for key, value in prior_route[1].items():
+                args.setdefault(key, value)
+    if is_event:
+        if "upcoming" in text or "future" in text:
+            args["date_from"] = date.today().isoformat()
+        return ("search_events", args)
+    if "saved preferences" in text or "my preferences" in text or "match my preferences" in text:
+        return ("preferences_then_jobs", args)
+    return ("search_jobs", args)
+
+
 def _recover_content_tool_call(content):
     """Recover Llama's occasional JSON-like tool request from message.content.
 
@@ -77,6 +195,13 @@ def _recover_content_tool_call(content):
             continue
         args[key] = value
     return {"role": "assistant", "content": "", "tool_calls": [{"id": "recovered_content_call", "function": {"name": name, "arguments": args}}]}
+
+
+def _looks_like_internal_tool_call(content):
+    if not isinstance(content, str):
+        return False
+    names = "|".join(re.escape(tool["function"]["name"]) for tool in TOOLS)
+    return bool(re.match(rf"^\s*(?:{names})\s*\(", content, re.IGNORECASE))
 
 
 def _apply_explicit_search_intent(name, args, user_message):
@@ -163,12 +288,12 @@ def execute_tool(name, args, user, query_db):
 
 def _tool_result(call, result):
     function = call.get("function", {})
-    return {"role": "tool", "name": function.get("name", ""), "content": str(result)}
+    return {"role": "tool", "tool_call_id": call.get("id"), "name": function.get("name", ""), "content": str(result)}
 
 
 def _finalize_retrieval_answer(content, retrieval_result):
     """Prevent a model-truncated list from being exposed as the final answer."""
-    if not content or not retrieval_result.startswith("<retrieved_data>"):
+    if not retrieval_result.startswith("<retrieved_data>"):
         return content
     stripped = content.rstrip()
     if stripped.endswith((".", "!", "?")):
@@ -177,25 +302,93 @@ def _finalize_retrieval_answer(content, retrieval_result):
         rows = json.loads(retrieval_result[len("<retrieved_data>"):-len("</retrieved_data>")])
     except (TypeError, ValueError, json.JSONDecodeError):
         return "I found matching database-backed results."
+    if isinstance(rows, dict):
+        rows = [rows]
     if not isinstance(rows, list) or not rows:
         return "I found matching database-backed results."
     lines = ["I found these database-backed matches:"]
+    def display(value):
+        if value is None or str(value).strip().lower() in {"", "null", "string", "none"}:
+            return "Not specified"
+        return str(value)
     for row in rows[:3]:
         if "title" in row:
-            lines.append(f"- {row.get('title')} at {row.get('company')} in {row.get('location')} (salary {row.get('salary')}, deadline {row.get('deadline')}).")
+            lines.append(f"- Job ID {display(row.get('id'))}: {display(row.get('title'))} at {display(row.get('company') or row.get('company_name'))} in {display(row.get('location'))} (salary {display(row.get('salary'))}, deadline {display(row.get('deadline'))}).")
         elif "name" in row:
-            lines.append(f"- {row.get('name')} on {row.get('event_date')} at {row.get('location')}.")
+            lines.append(f"- Event ID {display(row.get('id'))}: {display(row.get('name'))} on {display(row.get('event_date'))} at {display(row.get('location'))}.")
     return "\n".join(lines)
 
 
 def run_assistant(user_message, conversation, user, query_db, model=None):
+    turn_started = perf_counter()
     model = model or OllamaModel()
     if not conversation or conversation[0].get("role") != "system": conversation.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
     conversation.append({"role": "user", "content": user_message})
+    route_started = perf_counter()
+    deterministic_route = _deterministic_route(user_message, conversation)
+    route_ms = (perf_counter() - route_started) * 1000
+    if deterministic_route:
+        route_name, route_value = deterministic_route
+        tool_calls = 0
+        tool_ms = 0.0
+        if route_name == "answer":
+            answer = route_value
+        else:
+            tool_started = perf_counter()
+            result = None
+            if route_name == "preferences_then_jobs":
+                preferences_result = execute_tool("get_student_preferences", {}, user, query_db)
+                tool_calls += 1
+                if not preferences_result.startswith("{"):
+                    result = preferences_result
+                else:
+                    try:
+                        preferences = json.loads(preferences_result)
+                    except (TypeError, ValueError, json.JSONDecodeError):
+                        preferences = {}
+                    args = dict(route_value)
+                    if not args.get("category") and preferences.get("preferred_categories"):
+                        args["category"] = preferences["preferred_categories"][0]
+                    if not args.get("city") and preferences.get("preferred_cities"):
+                        args["city"] = preferences["preferred_cities"][0]
+                    if not args.get("skill") and preferences.get("preferred_skills"):
+                        args["skill"] = preferences["preferred_skills"][0]
+                    if "remote_only" not in args and preferences.get("remote_only"):
+                        args["remote_only"] = True
+                    result = execute_tool("search_jobs", args, user, query_db)
+                    tool_calls += 1
+            else:
+                execution_name = "save_job_or_event" if route_name == "save" else route_name
+                result = execute_tool(execution_name, route_value, user, query_db)
+                tool_calls += 1
+            tool_ms = (perf_counter() - tool_started) * 1000
+            if result.startswith("Error:"):
+                answer = result
+            elif result.startswith("Confirmation required:"):
+                answer = result
+            elif result.startswith("No matching"):
+                answer = result
+            elif route_name == "get_student_preferences":
+                try:
+                    preferences = json.loads(result)
+                    answer = "Your saved preferences are: " + ", ".join(f"{key.replace('_', ' ')}={value}" for key, value in preferences.items())
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    answer = result
+            else:
+                answer = _finalize_retrieval_answer("", result)
+                if not answer:
+                    answer = "I found a database-backed result, but I couldn't format it safely."
+        conversation.append({"role": "assistant", "content": answer})
+        logger.info("assistant_intent_route route=%s route_ms=%.1f", route_name, route_ms)
+        logger.info("assistant_metrics total_ms=%.1f model_ms=0.0 tool_ms=%.1f model_calls=0 tool_calls=%d repairs=0", (perf_counter() - turn_started) * 1000, tool_ms, tool_calls)
+        return answer
     calls = 0
     repairs = 0
     retrieval_result_seen = False
     last_retrieval_result = ""
+    model_calls = 0
+    model_seconds = 0.0
+    tool_seconds = 0.0
     lowered = user_message.lower()
     if "preference" in lowered or "my city" in lowered or ("internship" in lowered and "city" in lowered):
         preflight_call = {"role": "assistant", "tool_calls": [{"id": "preference_preflight", "function": {"name": "get_student_preferences", "arguments": {}}}]}
@@ -207,15 +400,22 @@ def run_assistant(user_message, conversation, user, query_db, model=None):
         logger.info("tool_call name=get_student_preferences args={}")
     try:
         for _ in range(MAX_ITERATIONS):
+            model_started = perf_counter()
             response = model.complete(conversation, tools=TOOLS)
+            model_calls += 1
+            model_seconds += perf_counter() - model_started
             if not isinstance(response, dict): return "The model returned an invalid response."
             tool_calls = response.get("tool_calls") or []
+            recovered_content_call = False
             if not tool_calls:
                 content = response.get("content") or "I couldn't produce an answer."
                 recovered = _recover_content_tool_call(content)
                 if recovered:
                     response = recovered
                     tool_calls = response["tool_calls"]
+                    recovered_content_call = True
+                elif _looks_like_internal_tool_call(content):
+                    content = "I couldn't complete that request safely. Please try again."
                 elif content.lstrip().startswith("{") and '"name"' in content:
                     content = "I couldn't complete the database search safely. Please try again."
                 elif _needs_retrieval(user_message) and not retrieval_result_seen:
@@ -236,7 +436,9 @@ def run_assistant(user_message, conversation, user, query_db, model=None):
                 if isinstance(args, dict):
                     args = _apply_explicit_search_intent(name, args, user_message)
                 logger.info("tool_call name=%s args=%s", name, json.dumps(args, default=str))
+                tool_started = perf_counter()
                 result = f"Error: invalid JSON/object arguments for tool '{name}'. No tool was executed." if args is None else execute_tool(name, args, user, query_db)
+                tool_seconds += perf_counter() - tool_started
                 conversation.append(_tool_result(call, result))
                 if name in {"search_jobs", "get_job_details", "search_events"} and not result.startswith("Error:"):
                     retrieval_result_seen = True
@@ -245,6 +447,11 @@ def run_assistant(user_message, conversation, user, query_db, model=None):
                     repairs += 1
                     conversation.append({"role": "user", "content": "Repair this tool call once: use the exact declared JSON types, omit unknown or null values, and do not repeat the rejected arguments."})
                 if calls >= MAX_TOOL_CALLS: break
+            if FAST_RETRIEVAL_SUMMARY and len(tool_calls) == 1 and calls == 1 and not recovered_content_call and name in {"search_jobs", "get_job_details", "search_events"} and retrieval_result_seen and repairs == 0:
+                answer = _finalize_retrieval_answer("", last_retrieval_result)
+                if answer:
+                    conversation.append({"role": "assistant", "content": answer})
+                    return answer
             if calls >= MAX_TOOL_CALLS: break
         conversation.append({"role": "user", "content": "Use only the gathered tool results and answer briefly; do not call another tool."})
         response = model.complete(conversation)
@@ -258,4 +465,4 @@ def run_assistant(user_message, conversation, user, query_db, model=None):
         logger.exception("Assistant model call failed")
         return "The assistant is temporarily unavailable. Please try again."
     finally:
-        logger.info("assistant_tool_call_count=%d repairs=%d", calls, repairs)
+        logger.info("assistant_metrics total_ms=%.1f model_ms=%.1f tool_ms=%.1f model_calls=%d tool_calls=%d repairs=%d", (perf_counter() - turn_started) * 1000, model_seconds * 1000, tool_seconds * 1000, model_calls, calls, repairs)

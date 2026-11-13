@@ -87,8 +87,26 @@ class ScriptedModel:
 
 def test_search_text_without_retrieval_is_replaced_with_safe_message():
     model = ScriptedModel([{"content": '{"name":"not_a_tool","parameters":{}}'}])
-    result = agent.run_assistant("Find jobs at a company.", [], USER, db, model=model)
+    result = agent.run_assistant("Please inspect this database request.", [], USER, db, model=model)
     assert "complete the database search safely" in result
+
+
+def test_internal_textual_tool_call_is_never_exposed_as_assistant_text():
+    class TextToolModel:
+        def complete(self, messages, tools=None):
+            return {"content": 'get_student_preferences(city="New York", preferred_industry="Finance")'}
+
+    result = agent.run_assistant("What can you do?", [], USER, db, model=TextToolModel())
+    assert "get_student_preferences" not in result
+    assert "real jobs and events" in result
+
+
+def test_native_one_step_search_uses_bounded_direct_summary(monkeypatch):
+    model = ScriptedModel([{"tool_calls": [{"function": {"name": "search_jobs", "arguments": '{"keyword":"data"}'}}]}])
+    monkeypatch.setattr(agent, "FAST_RETRIEVAL_SUMMARY", True)
+    result = agent.run_assistant("Please investigate this database request.", [], USER, db, model=model)
+    assert "Data Analyst Intern" in result
+    assert len(model.messages) == 1
 
 
 def test_truncated_json_tool_request_is_recovered():
@@ -96,8 +114,153 @@ def test_truncated_json_tool_request_is_recovered():
         {"content": '{"name":"search_jobs","parameters":{"keyword":"DefinitelyNotInSeedData",'},
         {"content": "No matching jobs found."},
     ])
-    result = agent.run_assistant("Find jobs at DefinitelyNotInSeedData.", [], USER, db, model=model)
+    result = agent.run_assistant("Please investigate this database request.", [], USER, db, model=model)
     assert result == "No matching jobs found."
+
+
+def test_conversational_intents_bypass_model_and_database():
+    calls = {"model": 0, "db": 0}
+
+    class ForbiddenModel:
+        def complete(self, *args, **kwargs):
+            calls["model"] += 1
+            raise AssertionError("conversation should not call the model")
+
+    def forbidden_db(*args, **kwargs):
+        calls["db"] += 1
+        raise AssertionError("conversation should not query the database")
+
+    for message in ("what do u do", "hello", "hi how are you", "thanks", "help"):
+        answer = agent.run_assistant(message, [], USER, forbidden_db, model=ForbiddenModel())
+        assert answer
+    assert calls == {"model": 0, "db": 0}
+
+
+def test_deterministic_job_and_event_routes_use_real_tool_results():
+    class ForbiddenModel:
+        def complete(self, *args, **kwargs):
+            raise AssertionError("deterministic retrieval should not call the model")
+
+    job_answer = agent.run_assistant("Find remote data science internships in San Jose.", [], USER, db, model=ForbiddenModel())
+    event_answer = agent.run_assistant("Show upcoming events in San Jose.", [], USER, db, model=ForbiddenModel())
+    assert "Data Analyst Intern" in job_answer
+    assert "CS networking" in event_answer
+
+
+def test_deterministic_detail_and_save_routes_do_not_search_or_call_model():
+    class ForbiddenModel:
+        def complete(self, *args, **kwargs):
+            raise AssertionError("deterministic route should not call the model")
+
+    detail = agent.run_assistant("Show me the details for job 123.", [], USER, db, model=ForbiddenModel())
+    proposal = agent.run_assistant("save event 0033", [], USER, db, model=ForbiddenModel())
+    assert "Job ID" in detail
+    assert "Confirmation required" in proposal
+    assert '"item_type": "event"' in proposal
+    assert '"item_id": 33' in proposal
+
+
+def test_contextual_event_save_uses_the_last_real_event_id():
+    class ForbiddenModel:
+        def complete(self, *args, **kwargs):
+            raise AssertionError("contextual route should not call the model")
+
+    conversation = []
+    first = agent.run_assistant("show events in Palo Alto", conversation, USER, db, model=ForbiddenModel())
+    proposal = agent.run_assistant("save that event", conversation, USER, db, model=ForbiddenModel())
+    assert "Event ID 1" in first
+    assert '"item_id": 1' in proposal
+
+
+def test_save_it_uses_one_unambiguous_prior_result_and_never_searches():
+    class ForbiddenModel:
+        def complete(self, *args, **kwargs):
+            raise AssertionError("contextual save should not call the model")
+
+    calls = []
+    def recording_db(sql, params=(), fetch="all", commit=False):
+        calls.append(sql)
+        return db(sql, params, fetch, commit)
+
+    conversation = []
+    agent.run_assistant("show events in Palo Alto", conversation, USER, recording_db, model=ForbiddenModel())
+    proposal = agent.run_assistant("save it", conversation, USER, recording_db, model=ForbiddenModel())
+    assert '"item_type": "event"' in proposal
+    assert '"item_id": 1' in proposal
+    assert not any("FROM events" in sql and "SELECT id" not in sql for sql in calls[-2:])
+
+
+def test_weather_is_truthful_fast_path_without_model_or_database():
+    class ForbiddenModel:
+        def complete(self, *args, **kwargs):
+            raise AssertionError("unsupported weather request should not call the model")
+
+    def forbidden_db(*args, **kwargs):
+        raise AssertionError("unsupported weather request should not query the database")
+
+    answer = agent.run_assistant("weather today", [], USER, forbidden_db, model=ForbiddenModel())
+    assert "can't provide live weather" in answer
+
+
+def test_event_follow_up_changes_only_the_city():
+    calls = []
+
+    def recording_db(sql, params=(), fetch="all", commit=False):
+        calls.append((sql, params))
+        return db(sql, params, fetch, commit)
+
+    conversation = []
+    agent.run_assistant("show events in Palo Alto", conversation, USER, recording_db, model=ScriptedModel([]))
+    answer = agent.run_assistant("what ab Mountain View?", conversation, USER, recording_db, model=ScriptedModel([]))
+    assert "CS networking" in answer
+    assert any("Mountain View" in str(params) for _, params in calls)
+
+
+def test_follow_up_refinement_preserves_previous_job_constraints():
+    calls = []
+
+    def recording_db(sql, params=(), fetch="all", commit=False):
+        calls.append((sql, params, fetch))
+        return db(sql, params, fetch, commit)
+
+    conversation = []
+    agent.run_assistant("Find remote data science internships.", conversation, USER, recording_db, model=ScriptedModel([]))
+    answer = agent.run_assistant("Only in Palo Alto.", conversation, USER, recording_db, model=ScriptedModel([]))
+    assert "Data Analyst Intern" in answer
+    assert any("Palo Alto" in str(params) and "data science" in str(params) for _, params, _ in calls)
+
+
+def test_unknown_request_is_handled_without_model_or_database_calls():
+    class Model:
+        def __init__(self): self.calls = 0
+        def complete(self, *args, **kwargs):
+            self.calls += 1
+            raise AssertionError("unsupported request should not call the model")
+
+    model = Model()
+    answer = agent.run_assistant("Tell me something unrelated to careers.", [], USER, db, model=model)
+    assert "real job and event searches" in answer
+    assert model.calls == 0
+
+
+@pytest.mark.parametrize("message", ["messi v ronaldoi", "tell me a joke", "what are the latest sports scores"])
+def test_unrelated_prompts_do_not_inherit_prior_job_search(message):
+    calls = {"model": 0, "db": 0}
+
+    class ForbiddenModel:
+        def complete(self, *args, **kwargs):
+            calls["model"] += 1
+            raise AssertionError("unrelated prompt should not call the model")
+
+    def forbidden_db(*args, **kwargs):
+        calls["db"] += 1
+        raise AssertionError("unrelated prompt should not query the database")
+
+    conversation = []
+    agent.run_assistant("Find data analyst jobs in San Jose", conversation, USER, db, model=ForbiddenModel())
+    answer = agent.run_assistant(message, conversation, USER, forbidden_db, model=ForbiddenModel())
+    assert "real job and event searches" in answer
+    assert calls == {"model": 0, "db": 0}
 
 
 def test_no_match_tool_result_gets_truthful_final_fallback():

@@ -169,6 +169,7 @@ class CompanyProfileRequest(BaseModel):
 
 
 class StudentProfileRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=150)
     date_of_birth: date | None = None
     city: str | None = Field(default=None, max_length=100)
     state: str | None = Field(default=None, max_length=100)
@@ -401,6 +402,13 @@ def update_student_profile(
 ):
     require_role(user, "student")
 
+    if request.name is not None:
+        query_db(
+            "UPDATE users SET name = %s WHERE id = %s AND role = 'student'",
+            (request.name.strip(), user["id"]),
+            commit=True,
+        )
+
     query_db(
         """
         INSERT INTO student_profiles
@@ -454,6 +462,27 @@ def update_student_profile(
     )
 
     return {"message": "Student profile updated successfully"}
+
+
+@app.get("/student/profile")
+def get_student_profile(user=Depends(get_authenticated_user)):
+    require_role(user, "student")
+    profile = query_db(
+        """
+        SELECT u.id, u.name, u.email, sp.date_of_birth, sp.city, sp.state,
+               sp.country, sp.career_objective, sp.college, sp.degree,
+               sp.major, sp.graduation_year, sp.cgpa, sp.experience, sp.phone,
+               sp.profile_picture
+        FROM users u
+        JOIN student_profiles sp ON sp.user_id = u.id
+        WHERE u.id = %s
+        """,
+        (user["id"],),
+        fetch="one",
+    )
+    if not profile:
+        raise HTTPException(status_code=404, detail="Student profile not found")
+    return profile
 
 class JobUpdateRequest(BaseModel):
     title: str = Field(min_length=1, max_length=200)
@@ -565,7 +594,8 @@ def get_job_details(job_id: int):
         SELECT j.id, j.company_user_id, j.title, j.posting_date,
                j.deadline, j.location, j.salary, j.description,
                j.category, j.is_remote, j.created_at,
-               c.company_name, c.website, c.description AS company_description
+               c.company_name, c.website, c.contact_information,
+               c.description AS company_description
         FROM jobs j
         LEFT JOIN company_profiles c ON c.user_id = j.company_user_id
         WHERE j.id = %s
@@ -646,6 +676,21 @@ def company_jobs(user=Depends(get_authenticated_user)):
         FROM jobs j
         WHERE j.company_user_id = %s
         ORDER BY j.created_at DESC
+        """,
+        (user["id"],),
+    )
+
+
+@app.get("/company/events", tags=["Events"])
+def company_events(user=Depends(get_authenticated_user)):
+    require_role(user, "company")
+    return query_db(
+        """
+        SELECT e.*, c.company_name
+        FROM events e
+        LEFT JOIN company_profiles c ON c.user_id = e.company_user_id
+        WHERE e.company_user_id = %s
+        ORDER BY e.event_date, e.event_time
         """,
         (user["id"],),
     )
@@ -899,6 +944,37 @@ def event_registrants(
         """,
         (event_id,),
     )
+
+
+@app.get("/company/events/{event_id}/registrants/{student_id}/profile", tags=["Events"])
+def event_registrant_profile(
+    event_id: int,
+    student_id: int,
+    user=Depends(get_authenticated_user),
+):
+    require_role(user, "company")
+    profile = query_db(
+        """
+        SELECT u.id AS student_id, u.name, u.email,
+               sp.date_of_birth, sp.city, sp.state, sp.country,
+               sp.career_objective, sp.college, sp.degree, sp.major,
+               sp.graduation_year, sp.cgpa, sp.experience, sp.phone,
+               CASE WHEN sp.profile_picture IS NOT NULL THEN 1 ELSE 0 END
+                   AS profile_picture_available,
+               er.registered_at
+        FROM events e
+        JOIN event_registrations er
+          ON er.event_id = e.id AND er.student_user_id = %s
+        JOIN users u ON u.id = er.student_user_id
+        LEFT JOIN student_profiles sp ON sp.user_id = u.id
+        WHERE e.id = %s AND e.company_user_id = %s
+        """,
+        (student_id, event_id, user["id"]),
+        fetch="one",
+    )
+    if not profile:
+        raise HTTPException(status_code=404, detail="Event registrant profile not found")
+    return profile
 
 
 

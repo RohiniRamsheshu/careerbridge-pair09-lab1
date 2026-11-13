@@ -1,7 +1,8 @@
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from backend.app.auth import get_authenticated_user
@@ -34,6 +35,31 @@ def run_query(sql, params=(), fetch="all", commit=False):
     finally:
         cursor.close()
         connection.close()
+
+
+def _safe_resume_path(raw_path):
+    """Validate a stored resume without exposing its filesystem location."""
+    if not raw_path:
+        raise HTTPException(status_code=404, detail="Resume not found")
+
+    resume_path = Path(raw_path).resolve()
+    resume_root = RESUME_DIR.resolve()
+    try:
+        resume_path.relative_to(resume_root)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Resume not found")
+
+    if resume_path.suffix.lower() != ".pdf" or not resume_path.is_file():
+        raise HTTPException(status_code=404, detail="Resume not found")
+
+    try:
+        with resume_path.open("rb") as stream:
+            if stream.read(5) != b"%PDF-":
+                raise HTTPException(status_code=404, detail="Resume not found")
+    except OSError:
+        raise HTTPException(status_code=404, detail="Resume not found")
+
+    return resume_path
 
 
 @router.post("/resume", status_code=201)
@@ -206,6 +232,67 @@ def get_applicants(
         ORDER BY a.applied_at DESC
         """,
         (job_id,),
+    )
+
+
+@router.get("/company/jobs/{job_id}/applicants/{application_id}/profile")
+def get_applicant_profile(
+    job_id: int,
+    application_id: int,
+    user=Depends(get_authenticated_user),
+):
+    require_role(user, "company")
+
+    profile = run_query(
+        """
+        SELECT u.id AS student_id, u.name, u.email,
+               sp.date_of_birth, sp.city, sp.state, sp.country,
+               sp.career_objective, sp.college, sp.degree, sp.major,
+               sp.graduation_year, sp.cgpa, sp.experience, sp.phone,
+               CASE WHEN sp.profile_picture IS NOT NULL THEN 1 ELSE 0 END
+                   AS profile_picture_available,
+               CASE WHEN a.resume_path IS NOT NULL THEN 1 ELSE 0 END
+                   AS resume_available
+        FROM applications a
+        JOIN jobs j ON j.id = a.job_id AND j.company_user_id = %s
+        JOIN users u ON u.id = a.student_user_id
+        LEFT JOIN student_profiles sp ON sp.user_id = u.id
+        WHERE a.id = %s AND a.job_id = %s
+        """,
+        (user["id"], application_id, job_id),
+        fetch="one",
+    )
+    if not profile:
+        raise HTTPException(status_code=404, detail="Applicant profile not found")
+    return profile
+
+
+@router.get("/company/jobs/{job_id}/applicants/{application_id}/resume")
+def preview_applicant_resume(
+    job_id: int,
+    application_id: int,
+    user=Depends(get_authenticated_user),
+):
+    require_role(user, "company")
+
+    application = run_query(
+        """
+        SELECT a.resume_path
+        FROM applications a
+        JOIN jobs j ON j.id = a.job_id AND j.company_user_id = %s
+        WHERE a.id = %s AND a.job_id = %s
+        """,
+        (user["id"], application_id, job_id),
+        fetch="one",
+    )
+    if not application:
+        raise HTTPException(status_code=404, detail="Applicant resume not found")
+
+    resume_path = _safe_resume_path(application.get("resume_path"))
+    return FileResponse(
+        str(resume_path),
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'inline; filename="resume.pdf"'},
     )
 
 
