@@ -1,16 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useDispatch } from "react-redux";
+import { loadApplications as loadApplicationsThunk, loadJobs as loadJobsThunk, loadSavedItems } from "../store/slices.js";
 import {
-  getJobs,
   createSavedItem,
-  getSavedItems,
   deleteSavedItem,
   listResumes,
   applyToJob as submitApplication,
   getJob,
-  getStudentApplications,
 } from "../services/api.js";
 
 function JobsPage() {
+  const PAGE_SIZE = 50;
+  const dispatch = useDispatch();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -32,12 +33,15 @@ const [applicationsLoading, setApplicationsLoading] = useState(true);
 const [applicationStatus, setApplicationStatus] = useState("All");
 const [detailsLoading, setDetailsLoading] = useState(false);
 const [detailsError, setDetailsError] = useState("");
+  const [page, setPage] = useState(0);
+  const [totalJobs, setTotalJobs] = useState(0);
+  const requestSequence = useRef(0);
 
 
 useEffect(() => {
   async function loadSavedJobs() {
     try {
-      const data = await getSavedItems();
+      const data = await dispatch(loadSavedItems()).unwrap();
 
       const jobRecords = data.filter(
         (item) => item.item_type === "job"
@@ -56,7 +60,7 @@ useEffect(() => {
   }
 
   loadSavedJobs();
-}, []);
+}, [dispatch]);
 useEffect(() => {
   listResumes().then(setResumes).catch(() => setResumes([]));
 }, []);
@@ -64,26 +68,33 @@ useEffect(() => {
   async function loadApplications() {
     setApplicationsLoading(true);
     setApplicationsError("");
-    try { setApplications(await getStudentApplications()); }
+    try { setApplications(await dispatch(loadApplicationsThunk()).unwrap()); }
     catch (requestError) { setApplicationsError(requestError.message || "Unable to load applications."); }
     finally { setApplicationsLoading(false); }
   }
   loadApplications();
-}, []);
+  }, [dispatch]);
   useEffect(() => {
     async function loadJobs() {
+      const requestId = ++requestSequence.current;
       try {
         setLoading(true);
         setError("");
 
         const filters = {
+          limit: PAGE_SIZE,
+          offset: page * PAGE_SIZE,
+          include_total: true,
           ...(search.trim() && searchField === "title" ? { title: search.trim() } : {}),
           ...(search.trim() && searchField === "company" ? { company: search.trim() } : {}),
           ...(location !== "All" ? { city: location } : {}),
           ...(mode === "Remote" ? { remote: true } : mode === "On-site" ? { remote: false } : {}),
           ...(category !== "All" ? { category } : {}),
         };
-        const data = await getJobs(filters);
+        const result = await dispatch(loadJobsThunk(filters)).unwrap();
+        const data = Array.isArray(result) ? result : result.items;
+        if (requestId !== requestSequence.current) return;
+        setTotalJobs(Array.isArray(result) ? data.length : (result.total ?? 0));
 
         const normalizedJobs = (Array.isArray(data) ? data : []).map(
           (job) => ({
@@ -97,14 +108,16 @@ useEffect(() => {
 
         setJobs(normalizedJobs);
       } catch (requestError) {
+        if (requestId !== requestSequence.current) return;
         setError(requestError.message || "Unable to load jobs.");
       } finally {
-        setLoading(false);
+        if (requestId === requestSequence.current) setLoading(false);
       }
     }
 
     loadJobs();
-  }, [search, searchField, location, mode, category]);
+  }, [dispatch, search, searchField, location, mode, category, page]);
+  useEffect(() => { setPage(0); }, [search, searchField, location, mode, category]);
 const filteredJobs = useMemo(() => {
   return jobs.filter((job) => {
     return (category === "All" || job.category === category) &&
@@ -238,8 +251,7 @@ const filteredJobs = useMemo(() => {
       {detailsError && <div className="error-message">Job details failed: {detailsError}</div>}
 
       <p className="result-count">
-        {filteredJobs.length} opportunity
-        {filteredJobs.length === 1 ? "" : "ies"} found
+        {totalJobs} matching opportunit{totalJobs === 1 ? "y" : "ies"} · Showing {totalJobs === 0 ? 0 : page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalJobs)} of {totalJobs}
       </p>
 
       <div className="job-list">
@@ -292,6 +304,12 @@ const filteredJobs = useMemo(() => {
           No jobs match your current search filters.
         </div>
       )}
+
+      <div className="pagination-controls" aria-label="Job results pagination">
+        <button className="secondary-button" type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || loading}>Previous</button>
+        <span>Page {page + 1} of {Math.max(1, Math.ceil(totalJobs / PAGE_SIZE))}</span>
+        <button className="secondary-button" type="button" onClick={() => setPage((current) => current + 1)} disabled={loading || (page + 1) * PAGE_SIZE >= totalJobs}>Next</button>
+      </div>
 
       {detailsLoading && <p className="subtitle">Loading job details...</p>}
 

@@ -1,0 +1,22 @@
+{
+  "scenario": "ambiguous offer-guidance request after grounding fix",
+  "endpoint": "/assistant/chat",
+  "http_status": 200,
+  "trace_id": "159a9d01-621c-4f02-8028-bc72ca0f93ac",
+  "answer_observed": "I couldn't verify matching records for that request, so I won't invent jobs, events, or offers. Please provide a specific career question or search criteria.",
+  "metrics": {
+    "prompt_tokens": 989,
+    "completion_tokens": 60,
+    "total_tokens": 1049,
+    "token_source": "provider-reported",
+    "context_window": 4096,
+    "context_utilization_percent": 25.61,
+    "model_calls": 2,
+    "tool_calls": 1,
+    "repairs": 0,
+    "model_ms": 74008.56249500066,
+    "tool_ms": 216.27694899507333,
+    "total_ms": 74256.58819700038
+  },
+  "assessment": "Live isolated request after the fix: unsupported offer claims were blocked. Latency remains high because the fallback used two Ollama calls."
+}

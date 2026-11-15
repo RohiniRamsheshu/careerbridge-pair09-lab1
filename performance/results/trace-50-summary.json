@@ -1,0 +1,17 @@
+{
+  "request_count": 50,
+  "successful_requests": 50,
+  "failed_requests": 0,
+  "average_http_ms": 10704.68,
+  "p50_http_ms": 7758,
+  "p95_http_ms": 22338,
+  "p99_http_ms": 26913,
+  "model_call_total": 0,
+  "tool_call_total": 50,
+  "estimated_token_records": 50,
+  "provider_token_records": 0,
+  "model_ms_available": true,
+  "database_ms_available": false,
+  "queue_wait_ms_available": false,
+  "limitation": "The current API telemetry exposes model/tool timing but not per-request database or Kafka queue duration."
+}

@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -8,7 +9,7 @@ from uuid import uuid4
 import bcrypt
 import mysql.connector
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from jose import jwt
 from pydantic import BaseModel, EmailStr, Field
@@ -18,8 +19,14 @@ from backend.app.auth import get_authenticated_user
 from backend.app.routes.applications import router as applications_router
 from backend.app.agent import run_assistant
 from backend.app.confirmation import approve_action
+from backend.app.services import student_service
+from backend.app import config
+from backend.app.events.outbox import enqueue_event, make_event
+from backend.app.mongo_repository import MongoRepository
+from backend.app.context_management import compact_conversation, ContextMetrics
 
 load_dotenv()
+logger = logging.getLogger("careerbridge.api")
 
 app = FastAPI(title="Handshake Lab 1 API")
 
@@ -30,6 +37,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def trace_requests(request, call_next):
+    trace_id = request.headers.get("X-Trace-ID") or str(uuid4())
+    request.state.trace_id = trace_id[:100]
+    response = await call_next(request)
+    response.headers["X-Trace-ID"] = request.state.trace_id
+    logger.info("http_request trace_id=%s method=%s path=%s status=%s", request.state.trace_id, request.method, request.url.path, response.status_code)
+    return response
 
 app.include_router(applications_router)
 
@@ -56,6 +73,26 @@ def query_db(sql, params=(), fetch="all", commit=False):
         if fetch == "one":
             return cursor.fetchone()
         return cursor.fetchall()
+    finally:
+        cursor.close()
+        connection.close()
+
+
+def insert_with_outbox(sql, params, topic, aggregate_type, payload_factory):
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute(sql, params)
+        aggregate_id = cursor.lastrowid
+        enqueue_event(
+            cursor,
+            make_event(topic, aggregate_id, aggregate_type, payload_factory(aggregate_id)),
+        )
+        connection.commit()
+        return aggregate_id
+    except Exception:
+        connection.rollback()
+        raise
     finally:
         cursor.close()
         connection.close()
@@ -402,64 +439,7 @@ def update_student_profile(
 ):
     require_role(user, "student")
 
-    if request.name is not None:
-        query_db(
-            "UPDATE users SET name = %s WHERE id = %s AND role = 'student'",
-            (request.name.strip(), user["id"]),
-            commit=True,
-        )
-
-    query_db(
-        """
-        INSERT INTO student_profiles
-        (
-            user_id,
-            date_of_birth,
-            city,
-            state,
-            country,
-            career_objective,
-            college,
-            degree,
-            major,
-            graduation_year,
-            cgpa,
-            experience,
-            phone
-        )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON DUPLICATE KEY UPDATE
-            date_of_birth = VALUES(date_of_birth),
-            city = VALUES(city),
-            state = VALUES(state),
-            country = VALUES(country),
-
-            career_objective = VALUES(career_objective),
-            college = VALUES(college),
-            degree = VALUES(degree),
-            major = VALUES(major),
-            graduation_year = VALUES(graduation_year),
-            cgpa = VALUES(cgpa),
-            experience = VALUES(experience),
-            phone = VALUES(phone)
-        """,
-        (
-            user["id"],
-            request.date_of_birth,
-            request.city,
-            request.state,
-            request.country,
-            request.career_objective,
-            request.college,
-            request.degree,
-            request.major,
-            request.graduation_year,
-            request.cgpa,
-            request.experience,
-            request.phone,
-        ),
-        commit=True,
-    )
+    student_service.update_profile(query_db, user["id"], request)
 
     return {"message": "Student profile updated successfully"}
 
@@ -467,19 +447,7 @@ def update_student_profile(
 @app.get("/student/profile")
 def get_student_profile(user=Depends(get_authenticated_user)):
     require_role(user, "student")
-    profile = query_db(
-        """
-        SELECT u.id, u.name, u.email, sp.date_of_birth, sp.city, sp.state,
-               sp.country, sp.career_objective, sp.college, sp.degree,
-               sp.major, sp.graduation_year, sp.cgpa, sp.experience, sp.phone,
-               sp.profile_picture
-        FROM users u
-        JOIN student_profiles sp ON sp.user_id = u.id
-        WHERE u.id = %s
-        """,
-        (user["id"],),
-        fetch="one",
-    )
+    profile = student_service.get_profile(query_db, user["id"])
     if not profile:
         raise HTTPException(status_code=404, detail="Student profile not found")
     return profile
@@ -508,25 +476,24 @@ def create_job(
             detail=f"Category must be one of: {sorted(JOB_CATEGORIES)}",
         )
 
-    job_id = query_db(
-        """
+    insert_sql = """
         INSERT INTO jobs
         (company_user_id, title, posting_date, deadline, location, salary,
          description, category, is_remote)
         VALUES (%s, %s, CURRENT_DATE(), %s, %s, %s, %s, %s, %s)
-        """,
-        (
-            user["id"],
-            request.title.strip(),
-            request.deadline,
-            request.location.strip(),
-            request.salary,
-            request.description,
-            request.category.strip().lower(),
-            request.is_remote,
-        ),
-        commit=True,
+    """
+    insert_params = (
+        user["id"], request.title.strip(), request.deadline,
+        request.location.strip(), request.salary, request.description,
+        request.category.strip().lower(), request.is_remote,
     )
+    if config.KAFKA_ENABLED:
+        job_id = insert_with_outbox(
+            insert_sql, insert_params, "job.created", "job",
+            lambda _id: {"company_user_id": user["id"], "title": request.title.strip(), "location": request.location.strip()},
+        )
+    else:
+        job_id = query_db(insert_sql, insert_params, commit=True)
 
     return {"id": job_id, "message": "Job created"}
 @app.get("/jobs", tags=["Jobs"])
@@ -540,6 +507,7 @@ def search_jobs(
     maximum_salary: Decimal | None = Query(default=None, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    include_total: bool = False,
 ):
     sql = """
         SELECT j.id, j.company_user_id, j.title, j.posting_date,
@@ -550,41 +518,60 @@ def search_jobs(
         LEFT JOIN company_profiles c ON c.user_id = j.company_user_id
         WHERE j.deadline >= CURDATE()
     """
+    count_sql = """
+        SELECT COUNT(*) AS total
+        FROM jobs j
+        LEFT JOIN company_profiles c ON c.user_id = j.company_user_id
+        WHERE j.deadline >= CURDATE()
+    """
     params = []
 
     if title:
         sql += " AND j.title LIKE %s"
+        count_sql += " AND j.title LIKE %s"
         params.append(f"%{title.strip()}%")
 
     if company:
         sql += " AND c.company_name LIKE %s"
+        count_sql += " AND c.company_name LIKE %s"
         params.append(f"%{company.strip()}%")
 
     if category:
         sql += " AND LOWER(j.category) = %s"
+        count_sql += " AND LOWER(j.category) = %s"
         params.append(category.strip().lower())
 
     if city:
         sql += " AND j.location LIKE %s"
+        count_sql += " AND j.location LIKE %s"
         params.append(f"%{city.strip()}%")
 
     if remote is not None:
         sql += " AND j.is_remote = %s"
+        count_sql += " AND j.is_remote = %s"
         params.append(remote)
 
     if minimum_salary is not None:
 
         sql += " AND j.salary >= %s"
+        count_sql += " AND j.salary >= %s"
         params.append(minimum_salary)
 
     if maximum_salary is not None:
         sql += " AND j.salary <= %s"
+        count_sql += " AND j.salary <= %s"
         params.append(maximum_salary)
+
+    count = None
+    if include_total:
+        count_row = query_db(count_sql, tuple(params), fetch="one")
+        count = int(count_row["total"] if count_row else 0)
 
     sql += " ORDER BY j.created_at DESC LIMIT %s OFFSET %s"
     params.extend([limit, offset])
 
-    return query_db(sql, tuple(params))
+    items = query_db(sql, tuple(params))
+    return {"items": items, "total": count, "limit": limit, "offset": offset} if include_total else items
 
 
 @app.get("/jobs/{job_id}", tags=["Jobs"])
@@ -735,9 +722,16 @@ def search_events(
     event_date: date | None = None,
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    include_total: bool = False,
 ):
     sql = """
         SELECT e.*, c.company_name
+        FROM events e
+        LEFT JOIN company_profiles c ON c.user_id = e.company_user_id
+        WHERE e.event_date >= CURDATE()
+    """
+    count_sql = """
+        SELECT COUNT(*) AS total
         FROM events e
         LEFT JOIN company_profiles c ON c.user_id = e.company_user_id
         WHERE e.event_date >= CURDATE()
@@ -746,20 +740,29 @@ def search_events(
 
     if name:
         sql += " AND e.name LIKE %s"
+        count_sql += " AND e.name LIKE %s"
         params.append(f"%{name.strip()}%")
 
     if city:
         sql += " AND e.location LIKE %s"
+        count_sql += " AND e.location LIKE %s"
         params.append(f"%{city.strip()}%")
 
     if event_date:
         sql += " AND e.event_date = %s"
+        count_sql += " AND e.event_date = %s"
         params.append(event_date)
+
+    count = None
+    if include_total:
+        count_row = query_db(count_sql, tuple(params), fetch="one")
+        count = int(count_row["total"] if count_row else 0)
 
     sql += " ORDER BY e.event_date, e.event_time LIMIT %s OFFSET %s"
     params.extend([limit, offset])
 
-    return query_db(sql, tuple(params))
+    items = query_db(sql, tuple(params))
+    return {"items": items, "total": count, "limit": limit, "offset": offset} if include_total else items
 
 
 @app.get("/events/{event_id}", tags=["Events"])
@@ -862,14 +865,18 @@ def register_for_event(
     if existing:
         raise HTTPException(status_code=409, detail="Already registered")
 
-    registration_id = query_db(
-        """
+    insert_sql = """
         INSERT INTO event_registrations (event_id, student_user_id)
         VALUES (%s, %s)
-        """,
-        (event_id, user["id"]),
-        commit=True,
-    )
+    """
+    if config.KAFKA_ENABLED:
+        registration_id = insert_with_outbox(
+            insert_sql, (event_id, user["id"]), "event.registration_created",
+            "event_registration",
+            lambda _id: {"event_id": event_id, "student_user_id": user["id"]},
+        )
+    else:
+        registration_id = query_db(insert_sql, (event_id, user["id"]), commit=True)
 
     return {"id": registration_id, "message": "Registered for event"}
 
@@ -1318,17 +1325,74 @@ class AssistantConfirmationRequest(BaseModel):
     approved: bool
 
 _assistant_conversations = {}
+_memory_repository = None
+
+
+def get_memory_repository():
+    global _memory_repository
+    if _memory_repository is None:
+        try:
+            repository = MongoRepository()
+            repository.ping()
+            repository.ensure_indexes()
+            _memory_repository = repository
+        except Exception:
+            return None
+    return _memory_repository
 
 @app.post("/assistant/chat", tags=["Assistant"])
 def assistant_chat(
     request: AssistantChatRequest,
+    http_request: Request,
     user=Depends(get_authenticated_user),
 ):
     require_role(user, "student")
     conversation_id = request.conversation_id or str(uuid4())
-    conversation = _assistant_conversations.setdefault((user["id"], conversation_id), [])
-    answer = run_assistant(user_message=request.message, conversation=conversation, user=user, query_db=query_db)
-    return {"answer": answer, "conversation_id": conversation_id}
+    memory_repository = get_memory_repository()
+    key = (user["id"], conversation_id)
+    conversation = _assistant_conversations.setdefault(key, [])
+    if not conversation and memory_repository is not None:
+        saved = memory_repository.get_conversation(user["id"], conversation_id)
+        if saved:
+            conversation.extend(saved.get("messages", []))
+    conversation, compaction = compact_conversation(
+        conversation,
+        threshold=int(os.getenv("ASSISTANT_CONTEXT_THRESHOLD", "3000")),
+    )
+    _assistant_conversations[key] = conversation
+    metrics = {"compaction": compaction}
+    trace_id = getattr(http_request, "state", None)
+    trace_id = getattr(trace_id, "trace_id", str(uuid4()))
+    if request.message.strip().lower() == "/memory":
+        if memory_repository is None:
+            answer = "Memory storage is unavailable in this environment."
+        else:
+            memories = memory_repository.memory_summary(user["id"])
+            answer = "No stored memory is available for this student." if not memories else "Stored memory:\n" + "\n".join(
+                f"- {item.get('memory_key')}: {item.get('value')}" for item in memories
+            )
+        conversation.extend([{"role": "user", "content": request.message}, {"role": "assistant", "content": answer}])
+        metrics.update({"model_calls": 0, "tool_calls": 0, "repairs": 0, "prompt_tokens": 0, "completion_tokens": 0, "estimated_tokens": True, "trace_id": trace_id})
+    else:
+        answer = run_assistant(
+            user_message=request.message, conversation=conversation, user=user,
+            query_db=query_db, memory_repo=memory_repository, metrics=metrics, trace_id=trace_id,
+        )
+    if memory_repository is not None:
+        try:
+            memory_repository.save_conversation(user["id"], conversation_id, conversation)
+        except Exception:
+            logger.exception("assistant_conversation_persist_failed")
+    token_metrics = ContextMetrics(
+        prompt_tokens=int(metrics.get("prompt_tokens", 0)),
+        completion_tokens=int(metrics.get("completion_tokens", 0)),
+        estimated=bool(metrics.get("estimated_tokens", True)),
+        compactions=1 if compaction.get("compacted") else 0,
+        before_tokens=compaction.get("before_tokens", 0),
+        after_tokens=compaction.get("after_tokens", 0),
+    ).as_dict(int(os.getenv("ASSISTANT_CONTEXT_WINDOW", "4096")))
+    token_metrics.update({key: metrics[key] for key in ("model_calls", "tool_calls", "repairs", "model_ms", "tool_ms", "total_ms", "trace_id") if key in metrics})
+    return {"answer": answer, "conversation_id": conversation_id, "metrics": token_metrics}
 
 @app.post("/assistant/confirm", tags=["Assistant"])
 def assistant_confirm(

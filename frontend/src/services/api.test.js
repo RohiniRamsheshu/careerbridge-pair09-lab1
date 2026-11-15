@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildJobQuery, getApplicantProfile, getEventRegistrantProfile, getEventRegistrants, getJob, getStudentApplications, isAuthenticatedUser, login, previewApplicantResume, updateStudentProfile } from "./api.js";
+import { buildJobQuery, getApplicantProfile, getEventRegistrantProfile, getEventRegistrants, getEvents, getJob, getStudentApplications, isAuthenticatedUser, login, previewApplicantResume, updateStudentProfile } from "./api.js";
 
 beforeEach(() => {
   vi.stubGlobal("localStorage", { getItem: () => null, setItem: vi.fn(), removeItem: vi.fn() });
@@ -29,6 +29,22 @@ describe("backend-supported job query mapping", () => {
   it("does not send unsupported empty filters", () => {
     const query = buildJobQuery({ title: "", company: "", remote: "" });
     expect(query.toString()).toBe("limit=50&offset=0");
+  });
+
+  it("preserves supported pagination for jobs and events", async () => {
+    const fetchMock = vi.fn(async (url) => ({ ok: true, status: 200, text: async () => "[]", url }));
+    vi.stubGlobal("fetch", fetchMock);
+    await getEvents({ city: "San Jose", limit: 50, offset: 50 });
+    expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:9090/events?limit=50&offset=50&city=San+Jose");
+    expect(buildJobQuery({ limit: 50, offset: 100 }).toString()).toBe("limit=50&offset=100");
+  });
+
+  it("requests backend total metadata without changing default list callers", async () => {
+    const fetchMock = vi.fn(async (url) => ({ ok: true, status: 200, text: async () => JSON.stringify({ items: [], total: 0, limit: 50, offset: 0 }), url }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { getJobs } = await import("./api.js");
+    await getJobs({ include_total: true });
+    expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:9090/jobs?limit=50&offset=0&include_total=true");
   });
 
   it("uses the existing read endpoints for applications, job details, and registrants", async () => {

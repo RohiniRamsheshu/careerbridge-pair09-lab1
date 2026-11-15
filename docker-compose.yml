@@ -1,0 +1,189 @@
+name: p09-careerbridge
+
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-handshake_lab1_local}
+      MYSQL_USER: ${DB_USER:-careerbridge}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD for the disposable local database}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD for the disposable local database}
+    ports:
+      - "${MYSQL_PORT:-13306}:3306"
+    volumes:
+      - p09-mysql-data:/var/lib/mysql
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  mongo:
+    image: mongo:8.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - p09-mongo-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' | grep 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  kafka:
+    image: apache/kafka:3.9.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:19092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:19092
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 1
+    ports:
+      - "19092:19092"
+    volumes:
+      - p09-kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 8s
+      retries: 20
+
+  kafka-init:
+    image: apache/kafka:3.9.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        for topic in p09.application.created p09.application.updated
+        p09.application.status_changed p09.event.registration_created p09.job.created
+        p09.memory.updated p09.memory.consolidate
+        p09.application.created.dlq p09.application.updated.dlq
+        p09.application.status_changed.dlq p09.event.registration_created.dlq p09.job.created.dlq
+        p09.memory.updated.dlq p09.memory.consolidate.dlq;
+        do /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092
+        --create --if-not-exists --topic $$topic --partitions 1 --replication-factor 1;
+        done
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      PAIR: "09"
+      PORT_BASE: "9090"
+      RESOURCE_PREFIX: p09
+      KAFKA_PREFIX: p09
+      SEED: "09"
+      CITY_SET: San Jose,Mountain View,Palo Alto
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-handshake_lab1_local}
+      DB_USER: ${DB_USER:-careerbridge}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD for the disposable local database}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET for the disposable local environment}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      KAFKA_ENABLED: "1"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: p09_careerbridge
+    ports:
+      - "9090:9090"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9090/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  worker:
+    build:
+      context: ./backend
+    command: ["python", "-m", "backend.app.events.worker", "--mode", "consumer"]
+    environment:
+      PAIR: "09"
+      PORT_BASE: "9090"
+      RESOURCE_PREFIX: p09
+      KAFKA_PREFIX: p09
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-handshake_lab1_local}
+      DB_USER: ${DB_USER:-careerbridge}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD for the disposable local database}
+      KAFKA_ENABLED: "1"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: p09_careerbridge
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import os; raise SystemExit(0 if os.path.exists('/proc/1/status') else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  outbox-worker:
+    build:
+      context: ./backend
+    command: ["python", "-m", "backend.app.events.worker", "--mode", "outbox"]
+    environment:
+      PAIR: "09"
+      KAFKA_PREFIX: p09
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-handshake_lab1_local}
+      DB_USER: ${DB_USER:-careerbridge}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD for the disposable local database}
+      KAFKA_ENABLED: "1"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: p09_careerbridge
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import os; raise SystemExit(0 if os.path.exists('/proc/1/status') else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:9090}
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  p09-mysql-data:
+  p09-kafka-data:
+  p09-mongo-data:

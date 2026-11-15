@@ -1,0 +1,13 @@
+{
+  "file": "performance/results/assistant-20.jtl",
+  "total_requests": 20,
+  "successful_requests": 20,
+  "failed_requests": 0,
+  "error_rate": 0.0,
+  "average_ms": 4724.05,
+  "p50_ms": 4720,
+  "p95_ms": 5597,
+  "p99_ms": 6935,
+  "throughput_requests_per_second": 1.454,
+  "note": "HTTP-level JMeter metrics only; model/database/Kafka timings require application trace telemetry."
+}

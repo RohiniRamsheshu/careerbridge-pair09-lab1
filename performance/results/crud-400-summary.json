@@ -1,0 +1,13 @@
+{
+  "file": "performance/results/crud-400.jtl",
+  "total_requests": 1200,
+  "successful_requests": 1200,
+  "failed_requests": 0,
+  "error_rate": 0.0,
+  "average_ms": 58736.101,
+  "p50_ms": 49322,
+  "p95_ms": 129876,
+  "p99_ms": 143585,
+  "throughput_requests_per_second": 6.405,
+  "note": "HTTP-level JMeter metrics only; model/database/Kafka timings require application trace telemetry."
+}

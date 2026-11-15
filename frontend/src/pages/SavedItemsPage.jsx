@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
-import { deleteSavedItem, getJob, getSavedItems, getStudentApplications } from "../services/api.js";
+import { useDispatch } from "react-redux";
+import { loadApplications, loadSavedItems } from "../store/slices.js";
+import { deleteSavedItem, getJob } from "../services/api.js";
 
 function SavedItemsPage() {
+  const dispatch = useDispatch();
   const [saved, setSaved] = useState([]); const [applications, setApplications] = useState([]); const [loading, setLoading] = useState(true); const [error, setError] = useState(""); const [removing, setRemoving] = useState(null); const [selectedJob, setSelectedJob] = useState(null); const [selectedEvent, setSelectedEvent] = useState(null);
-  useEffect(() => { Promise.all([getSavedItems(), getStudentApplications()]).then(([items, rows]) => { setSaved(Array.isArray(items) ? items : []); setApplications(Array.isArray(rows) ? rows : []); }).catch((requestError) => setError(requestError.message || "Unable to load saved items.")).finally(() => setLoading(false)); }, []);
+  useEffect(() => { Promise.all([dispatch(loadSavedItems()).unwrap(), dispatch(loadApplications()).unwrap()]).then(([items, rows]) => { setSaved(Array.isArray(items) ? items : []); setApplications(Array.isArray(rows) ? rows : []); }).catch((requestError) => setError(requestError.message || "Unable to load saved items.")).finally(() => setLoading(false)); }, [dispatch]);
   async function remove(item) { if (!window.confirm("Remove this saved item?")) return; setRemoving(item.id); setError(""); try { await deleteSavedItem(item.id); setSaved((current) => current.filter((entry) => entry.id !== item.id)); } catch (requestError) { setError(requestError.message || "Unable to remove saved item."); } finally { setRemoving(null); } }
   async function viewJob(item) { try { setSelectedJob(await getJob(item.item_id)); } catch (requestError) { setError(requestError.message || "Unable to load job details."); } }
   async function viewApplication(application) { try { setSelectedJob(await getJob(application.job_id)); } catch (requestError) { setError(requestError.message || "Unable to load job details."); } }

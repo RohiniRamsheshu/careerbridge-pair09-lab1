@@ -114,7 +114,12 @@ def test_truncated_json_tool_request_is_recovered():
         {"content": '{"name":"search_jobs","parameters":{"keyword":"DefinitelyNotInSeedData",'},
         {"content": "No matching jobs found."},
     ])
-    result = agent.run_assistant("Please investigate this database request.", [], USER, db, model=model)
+    def no_match_db(sql, params=(), fetch="all", commit=False):
+        if "DefinitelyNotInSeedData" in str(params):
+            return []
+        return db(sql, params, fetch, commit)
+
+    result = agent.run_assistant("Please investigate this database request.", [], USER, no_match_db, model=model)
     assert result == "No matching jobs found."
 
 
@@ -275,6 +280,65 @@ def test_no_match_tool_result_gets_truthful_final_fallback():
     ])
     result = agent.run_assistant("Find jobs at none.", [], USER, no_match_db, model=model)
     assert result == "No matching jobs found."
+
+
+def test_fallback_cannot_invent_offer_after_tool_results():
+    class ScriptedFallbackModel:
+        def __init__(self):
+            self.responses = [
+                {"tool_calls": [{"function": {"name": "get_student_preferences", "arguments": "{}"}}]},
+                {"tool_calls": [{"function": {"name": "search_jobs", "arguments": '{"keyword":"data"}'}}]},
+                {"content": "Based on your preferences, Offer 1 is a three-month internship with a $15,000 stipend."},
+            ]
+            self.calls = 0
+
+        def complete(self, messages, tools=None):
+            response = self.responses[min(self.calls, len(self.responses) - 1)]
+            self.calls += 1
+            return response
+
+    def grounded_db(sql, params=(), fetch="all", commit=False):
+        if "student_preferences" in sql:
+            return {"preferred_categories": [], "preferred_cities": [], "preferred_skills": [], "remote_only": False, "minimum_salary": None}
+        if "FROM jobs" in sql:
+            return [{"id": 7, "title": "Data Analyst Intern", "company": "Verified Co", "location": "San Jose", "category": "internship", "salary": 90000, "deadline": "2026-10-28", "is_remote": 0}]
+        return db(sql, params, fetch, commit)
+
+    result = agent.run_assistant(
+        "I need guidance on choosing between two offers.",
+        [],
+        USER,
+        grounded_db,
+        model=ScriptedFallbackModel(),
+    )
+
+    assert "Data Analyst Intern" in result
+    assert "Verified Co" in result
+    assert "Offer 1" not in result
+    assert "$15,000" not in result
+
+
+def test_fallback_cannot_claim_search_results_when_only_preferences_were_read():
+    class FabricatingModel:
+        def __init__(self):
+            self.responses = [
+                {"tool_calls": [{"function": {"name": "get_student_preferences", "arguments": "{}"}}]},
+                {"content": "Based on the student's preferences, I've searched for internship opportunities in their city. Offer 1 is a three-month internship."},
+            ]
+
+        def complete(self, messages, tools=None):
+            return self.responses.pop(0)
+
+    result = agent.run_assistant(
+        "I need guidance on choosing between two offers.",
+        [],
+        USER,
+        db,
+        model=FabricatingModel(),
+    )
+
+    assert "I couldn't verify matching records" in result
+    assert "Offer 1" not in result
 
 
 @pytest.mark.parametrize("case", [

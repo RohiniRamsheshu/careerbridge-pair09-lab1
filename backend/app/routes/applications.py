@@ -7,6 +7,9 @@ from pydantic import BaseModel
 
 from backend.app.auth import get_authenticated_user
 from backend.app.database import get_connection
+from backend.app.services import application_service
+from backend.app import config
+from backend.app.events.outbox import enqueue_event, make_event
 
 router = APIRouter(prefix="/applications", tags=["Applications"])
 
@@ -170,10 +173,19 @@ def apply_to_job(
             ),
         )
 
+        application_id = cursor.lastrowid
+        if config.KAFKA_ENABLED:
+            enqueue_event(
+                cursor,
+                make_event(
+                    "application.created", application_id, "application",
+                    {"job_id": job_id, "student_user_id": user["id"], "status": "Pending"},
+                ),
+            )
         connection.commit()
 
         return {
-            "id": cursor.lastrowid,
+            "id": application_id,
             "message": "Application submitted",
         }
 
@@ -185,19 +197,7 @@ def apply_to_job(
 @router.get("/student")
 def student_applications(user=Depends(get_authenticated_user)):
     require_role(user, "student")
-
-    return run_query(
-        """
-        SELECT a.id, a.job_id, a.resume_path, a.status, a.applied_at,
-               j.title, j.company_user_id, c.company_name
-        FROM applications a
-        JOIN jobs j ON j.id = a.job_id
-        JOIN company_profiles c ON c.user_id = j.company_user_id
-        WHERE a.student_user_id = %s
-        ORDER BY a.applied_at DESC
-        """,
-        (user["id"],),
-    )
+    return application_service.list_for_student(run_query, user["id"])
 
 
 @router.get("/company/jobs/{job_id}/applicants")
@@ -207,32 +207,10 @@ def get_applicants(
 ):
     require_role(user, "company")
 
-    job = run_query(
-        """
-        SELECT id FROM jobs
-        WHERE id = %s AND company_user_id = %s
-        """,
-        (job_id, user["id"]),
-        fetch="one",
-    )
-
+    job, applicants = application_service.owned_applicants(run_query, job_id, user["id"])
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-
-    return run_query(
-        """
-        SELECT a.id AS application_id, a.status, a.applied_at,
-               a.resume_path, u.id AS student_id, u.name, u.email,
-               sp.college, sp.degree, sp.major, sp.graduation_year,
-               sp.cgpa, sp.experience
-        FROM applications a
-        JOIN users u ON u.id = a.student_user_id
-        LEFT JOIN student_profiles sp ON sp.user_id = u.id
-        WHERE a.job_id = %s
-        ORDER BY a.applied_at DESC
-        """,
-        (job_id,),
-    )
+    return applicants
 
 
 @router.get("/company/jobs/{job_id}/applicants/{application_id}/profile")
@@ -243,24 +221,8 @@ def get_applicant_profile(
 ):
     require_role(user, "company")
 
-    profile = run_query(
-        """
-        SELECT u.id AS student_id, u.name, u.email,
-               sp.date_of_birth, sp.city, sp.state, sp.country,
-               sp.career_objective, sp.college, sp.degree, sp.major,
-               sp.graduation_year, sp.cgpa, sp.experience, sp.phone,
-               CASE WHEN sp.profile_picture IS NOT NULL THEN 1 ELSE 0 END
-                   AS profile_picture_available,
-               CASE WHEN a.resume_path IS NOT NULL THEN 1 ELSE 0 END
-                   AS resume_available
-        FROM applications a
-        JOIN jobs j ON j.id = a.job_id AND j.company_user_id = %s
-        JOIN users u ON u.id = a.student_user_id
-        LEFT JOIN student_profiles sp ON sp.user_id = u.id
-        WHERE a.id = %s AND a.job_id = %s
-        """,
-        (user["id"], application_id, job_id),
-        fetch="one",
+    profile = application_service.applicant_profile(
+        run_query, job_id, application_id, user["id"]
     )
     if not profile:
         raise HTTPException(status_code=404, detail="Applicant profile not found")
@@ -275,15 +237,8 @@ def preview_applicant_resume(
 ):
     require_role(user, "company")
 
-    application = run_query(
-        """
-        SELECT a.resume_path
-        FROM applications a
-        JOIN jobs j ON j.id = a.job_id AND j.company_user_id = %s
-        WHERE a.id = %s AND a.job_id = %s
-        """,
-        (user["id"], application_id, job_id),
-        fetch="one",
+    application = application_service.applicant_resume(
+        run_query, job_id, application_id, user["id"]
     )
     if not application:
         raise HTTPException(status_code=404, detail="Applicant resume not found")
@@ -315,26 +270,16 @@ def update_application_status(
             detail="Status must be Reviewed or Declined",
         )
 
-    application = run_query(
-        """
-        SELECT a.id
-        FROM applications a
-        JOIN jobs j ON j.id = a.job_id
-        WHERE a.id = %s
-          AND a.job_id = %s
-          AND j.company_user_id = %s
-        """,
-        (application_id, job_id, user["id"]),
-        fetch="one",
-    )
-
-    if not application:
+    if config.KAFKA_ENABLED:
+        updated_application_id = application_service.update_status_with_outbox(
+            get_connection, job_id, application_id, user["id"], request.status,
+            enqueue_event, make_event,
+        )
+    else:
+        updated_application_id = application_service.update_status(
+            run_query, job_id, application_id, user["id"], request.status
+        )
+    if not updated_application_id:
         raise HTTPException(status_code=404, detail="Application not found")
-
-    run_query(
-        "UPDATE applications SET status = %s WHERE id = %s",
-        (request.status, application_id),
-        commit=True,
-    )
 
     return {"message": "Application status updated"}

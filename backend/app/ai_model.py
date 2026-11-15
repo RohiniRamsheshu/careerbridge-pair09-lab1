@@ -2,6 +2,7 @@
 import json
 import urllib.request
 import urllib.error
+from backend.app.context_management import estimate_tokens
 
 
 class OllamaModel:
@@ -40,6 +41,14 @@ class OllamaModel:
             message = result.get("message")
             if not isinstance(message, dict):
                 raise RuntimeError("Ollama returned an invalid message")
+            usage = result.get("usage") or {}
+            prompt_tokens = result.get("prompt_eval_count", usage.get("prompt_tokens"))
+            completion_tokens = result.get("eval_count", usage.get("completion_tokens"))
+            message["_usage"] = {
+                "prompt_tokens": int(prompt_tokens) if prompt_tokens is not None else estimate_tokens(json.dumps(messages)),
+                "completion_tokens": int(completion_tokens) if completion_tokens is not None else estimate_tokens(message.get("content", "")),
+                "estimated": prompt_tokens is None or completion_tokens is None,
+            }
             return message
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")

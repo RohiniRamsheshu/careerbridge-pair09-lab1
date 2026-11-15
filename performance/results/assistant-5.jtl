@@ -1,0 +1,11 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1794571844702,2803,Login,200,OK,Assistant workload 1-1,text,true,,481,339,5,5,http://127.0.0.1:19090/auth/login,2802,0,151
+1794571844702,3032,Login,200,OK,Assistant workload 1-2,text,true,,481,339,5,5,http://127.0.0.1:19090/auth/login,3032,0,147
+1794571844921,2994,Login,200,OK,Assistant workload 1-3,text,true,,481,339,5,5,http://127.0.0.1:19090/auth/login,2994,0,2
+1794571845320,2676,Login,200,OK,Assistant workload 1-4,text,true,,481,339,5,5,http://127.0.0.1:19090/auth/login,2676,0,4
+1794571845724,3101,Login,200,OK,Assistant workload 1-5,text,true,,481,339,5,5,http://127.0.0.1:19090/auth/login,3100,0,4
+1794571847736,7587,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-2,text,true,,799,422,5,5,http://127.0.0.1:19090/assistant/chat,7587,0,2
+1794571847666,7841,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-1,text,true,,800,422,4,4,http://127.0.0.1:19090/assistant/chat,7840,0,18
+1794571848827,6680,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-5,text,true,,800,422,4,4,http://127.0.0.1:19090/assistant/chat,6679,0,3
+1794571847998,7527,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-4,text,true,,800,422,2,2,http://127.0.0.1:19090/assistant/chat,7527,0,2
+1794571847916,7624,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-3,text,true,,800,422,1,1,http://127.0.0.1:19090/assistant/chat,7624,0,3

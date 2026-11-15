@@ -4,3 +4,11 @@
 **/__pycache__/
 .pytest_cache/
 backend/uploads/
+
+# Generated Python files
+__pycache__/
+*.py[cod]
+
+# Local performance/debug logs
+performance/results/*.log
+

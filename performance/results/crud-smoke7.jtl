@@ -1,0 +1,4 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1794570952196,5321,Login,200,OK,CRUD workload 1-1,text,true,,481,339,1,1,http://127.0.0.1:19090/auth/login,5320,0,135
+1794570957681,613,Job search,200,OK,CRUD workload 1-1,text,true,,592,334,1,1,http://127.0.0.1:19090/jobs?city=San%20Jose,613,0,11
+1794570958295,923,Event search,200,OK,CRUD workload 1-1,text,true,,501,336,1,1,http://127.0.0.1:19090/events?city=San%20Jose,923,0,2

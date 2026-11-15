@@ -34,7 +34,7 @@ function RegisterPage() {
     {error && <div className="error-message">{error}</div>}
     {message && <div className="success-message inline-message">{message}</div>}
     <form className="login-form" onSubmit={submit}>
-      <label>Full name<input value={form.name} onChange={(event) => update("name", event.target.value)} required /></label>
+      <label>{role === "company" ? "Contact person's full name" : "Student's full name"}<input value={form.name} onChange={(event) => update("name", event.target.value)} required />{role === "company" && <small className="field-help">This identifies the company representative for this account.</small>}</label>
       <label>Email<input type="email" value={form.email} onChange={(event) => update("email", event.target.value)} required /></label>
       <label>Password<input type="password" minLength="8" value={form.password} onChange={(event) => update("password", event.target.value)} required /></label>
       <label>Account type<select value={role} onChange={(event) => setRole(event.target.value)}><option value="student">Student</option><option value="company">Company</option></select></label>

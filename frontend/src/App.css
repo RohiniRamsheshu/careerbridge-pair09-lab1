@@ -215,6 +215,20 @@ h2 {
   margin: 15px 0;
 }
 
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 900px;
+  margin: 22px 0 32px;
+  color: var(--ink-muted);
+}
+
+.pagination-controls .secondary-button {
+  min-width: 104px;
+}
+
 .job-list {
   display: grid;
   gap: 16px;
@@ -912,6 +926,13 @@ input::placeholder, textarea::placeholder { color: #70817b; }
   font-weight: bold;
 }
 
+.field-help {
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
 .login-form input,
 .login-form select {
   padding: 13px;
@@ -974,3 +995,74 @@ button:disabled {
 .student-dashboard .posting-row h3, .student-dashboard .posting-row p { overflow-wrap: anywhere; }
 .student-dashboard .posting-row span { white-space: nowrap; align-self: start; }
 @media (max-width: 900px) { .student-dashboard-grid { grid-template-columns: 1fr; } }
+
+/* Gotham Edition shared visual system. Existing components and API behavior remain unchanged. */
+:root {
+  --gotham-surface: #fffdf8;
+  --gotham-line: rgba(25, 57, 67, .18);
+  --gotham-shadow: 0 18px 42px rgba(7, 21, 27, .10);
+}
+body { background: var(--warm-ivory); color: var(--charcoal); font-family: Inter, "Segoe UI", sans-serif; }
+.app { background: var(--warm-ivory); }
+.sidebar { width: 248px; flex-basis: 248px; padding: 32px 22px 24px; background: var(--midnight-ink); border-right: 1px solid rgba(216, 180, 108, .26); position: relative; overflow: hidden; }
+.sidebar::after { content: ""; position: absolute; inset: 16px 12px; pointer-events: none; border: 1px solid rgba(216, 180, 108, .20); clip-path: polygon(0 0, 42% 0, 50% 7%, 58% 0, 100% 0, 100% 100%, 58% 100%, 50% 93%, 42% 100%, 0 100%); }
+.sidebar h2 { position: relative; z-index: 1; color: var(--warm-ivory); font-family: "Cormorant Garamond", Georgia, serif; font-size: 31px; letter-spacing: .02em; }
+.sidebar .pair-label { position: relative; z-index: 1; color: var(--antique-gold); letter-spacing: .22em; }
+.sidebar nav, .sidebar .profile { position: relative; z-index: 1; }
+.sidebar nav { gap: 5px; margin-top: 44px; }
+.sidebar nav a { color: #b9c9c7; border-radius: 2px; border-left: 2px solid transparent; padding: 12px 14px; letter-spacing: .02em; transition: background .18s ease, color .18s ease, border-color .18s ease; }
+.sidebar nav a:hover, .sidebar nav a.active { color: var(--warm-ivory); background: var(--slate-teal); border-left-color: var(--antique-gold); }
+.profile { border-top-color: rgba(216, 180, 108, .35); margin-top: 180px; }
+.profile span { color: #9cb4b0; }
+.main-content { padding: 28px clamp(24px, 4vw, 64px) 72px; background: linear-gradient(135deg, rgba(255,255,255,.48), transparent 42%), var(--warm-ivory); }
+.main-content > section { max-width: 1320px; }
+.topbar { min-height: 42px; margin-bottom: 54px; color: var(--ink-muted); border-bottom: 1px solid var(--gotham-line); padding-bottom: 16px; }
+.topbar::after { content: ""; width: 72px; height: 2px; background: var(--antique-gold); position: absolute; margin-top: 33px; margin-left: -112px; }
+h1, h2, h3, h4 { color: var(--midnight-ink); }
+h1 { font-size: clamp(42px, 5vw, 68px); letter-spacing: -.025em; }
+h2 { font-size: 30px; }
+h3 { font-size: 21px; }
+.eyebrow { color: var(--muted-brass); letter-spacing: .22em; font-size: 11px; }
+.subtitle, .result-count, .job-company, .event-meta, .event-time { color: var(--ink-muted); }
+.student-stats, .company-stats { max-width: none; gap: 18px; margin: 32px 0; }
+.stat-card, .company-panel, .job-card, .event-card, .profile-card, .safety-card, .chat-card { background: var(--gotham-surface); border: 1px solid var(--gotham-line); border-radius: 3px; box-shadow: var(--gotham-shadow); }
+.stat-card { padding: 24px 26px; position: relative; overflow: hidden; }
+.stat-card::before { content: ""; position: absolute; top: 0; left: 24px; right: 24px; height: 3px; background: var(--antique-gold); }
+.stat-card span { color: var(--ink-muted); text-transform: uppercase; letter-spacing: .13em; font-size: 11px; }
+.stat-card strong { color: var(--midnight-ink); font-family: "Cormorant Garamond", Georgia, serif; font-size: 46px; margin-top: 10px; }
+.dashboard-grid { max-width: none; gap: 24px; }
+.company-panel { max-width: none; padding: 28px; }
+.company-panel:first-of-type { background: var(--gotham-surface); }
+.posting-row { border-top-color: var(--gotham-line); padding: 19px 0; }
+.posting-row p, .posting-row span { color: var(--ink-muted); }
+.primary-button, .logout-button { background: var(--midnight-ink); border: 1px solid var(--midnight-ink); border-radius: 2px; color: var(--warm-ivory); min-height: 42px; padding: 10px 18px; letter-spacing: .03em; }
+.primary-button:hover, .primary-button:focus-visible, .logout-button:hover, .logout-button:focus-visible { background: var(--slate-teal); border-color: var(--antique-gold); }
+.secondary-button, .suggestion-button { background: transparent; border: 1px solid var(--muted-brass); border-radius: 2px; color: var(--midnight-ink); min-height: 42px; }
+.secondary-button:hover, .secondary-button:focus-visible, .suggestion-button:hover, .suggestion-button:focus-visible { background: rgba(216,180,108,.14); border-color: var(--antique-gold); }
+.saved-button { background: rgba(216,180,108,.24); color: var(--midnight-ink); border: 1px solid var(--muted-brass); border-radius: 2px; }
+.destructive-button { color: var(--error); }
+button:disabled { color: #819092; background: #dce3e0; border-color: #c6d0cd; opacity: 1; }
+input, select, textarea { background: #fffefa; border: 1px solid rgba(25,57,67,.30); border-radius: 2px; color: var(--midnight-ink); }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--antique-gold); outline-offset: 3px; }
+.job-card, .event-card { padding: 28px; }
+.job-mode, .event-type, .verification-badge { border-radius: 2px; background: rgba(216,180,108,.22); color: var(--midnight-ink); border: 1px solid rgba(165,139,92,.42); }
+.skill-list span { border-radius: 2px; background: rgba(25,57,67,.08); color: var(--slate-teal); }
+.assistant-layout { max-width: none; grid-template-columns: minmax(0, 1.45fr) minmax(280px, .75fr); gap: 26px; }
+.chat-card { padding: 26px; }
+.message-list { max-height: min(58vh, 560px); scrollbar-color: var(--muted-brass) transparent; }
+.chat-message { border-radius: 2px; box-shadow: 0 5px 18px rgba(7,21,27,.06); }
+.chat-message.assistant { background: #e6ead8; }
+.chat-message.user { background: var(--midnight-ink); }
+.assistant-info { background: var(--slate-teal); color: var(--warm-ivory); border-radius: 3px; border: 1px solid rgba(216,180,108,.4); box-shadow: var(--gotham-shadow); }
+.assistant-info h2, .assistant-info p, .assistant-info li, .assistant-info .eyebrow { color: var(--warm-ivory); }
+.assistant-info .eyebrow { color: var(--antique-gold); }
+.confirmation-card { border-radius: 2px; border-color: var(--pending); background: #fff6df; }
+.login-page { background: var(--midnight-ink); position: relative; overflow: hidden; }
+.login-page::before { content: ""; position: absolute; inset: 6vh 6vw; border: 1px solid rgba(216,180,108,.38); clip-path: polygon(0 0, 45% 0, 50% 8%, 55% 0, 100% 0, 100% 100%, 55% 100%, 50% 92%, 45% 100%, 0 100%); }
+.login-card { position: relative; border-radius: 3px; padding: 44px; background: var(--gotham-surface); box-shadow: 0 24px 70px rgba(0,0,0,.28); border-top: 3px solid var(--antique-gold); }
+.login-card h1 { font-size: 52px; }
+.login-form input, .login-form select { min-height: 44px; }
+.auth-link, .auth-link a { color: var(--slate-teal); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+@media (max-width: 900px) { .sidebar { width: 100%; flex-basis: auto; padding: 22px 18px; } .sidebar::after { inset: 8px; } .sidebar nav { margin-top: 20px; } .profile { margin-top: 20px; } .main-content { padding: 24px 20px 52px; } .topbar { margin-bottom: 38px; } .assistant-layout { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { h1 { font-size: 42px; } .main-content { padding: 20px 14px 40px; } .login-card { padding: 30px 22px; } .job-card, .event-card, .company-panel, .chat-card { padding: 20px; } .student-stats, .company-stats { grid-template-columns: 1fr; } }

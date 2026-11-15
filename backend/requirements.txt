@@ -32,3 +32,5 @@ bcrypt
 python-jose[cryptography]
 email-validator
 python-multipart
+kafka-python-ng==2.2.3
+pymongo==4.15.3

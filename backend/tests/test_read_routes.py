@@ -7,6 +7,44 @@ from backend.app.routes import applications
 client = TestClient(main.app)
 
 
+def test_jobs_include_filtered_total_metadata_without_changing_default_shape(monkeypatch):
+    calls = []
+
+    def fake_query(sql, params=(), fetch="all", commit=False):
+        calls.append((sql, params, fetch))
+        if fetch == "one":
+            return {"total": 73}
+        return [{"id": 12, "title": "Data internship"}]
+
+    monkeypatch.setattr(main, "query_db", fake_query)
+    response = client.get("/jobs?city=San%20Jose&category=internship&limit=50&offset=50&include_total=true")
+    assert response.status_code == 200
+    assert response.json() == {"items": [{"id": 12, "title": "Data internship"}], "total": 73, "limit": 50, "offset": 50}
+    assert len(calls) == 2
+    assert calls[0][2] == "one"
+    assert "COUNT(*)" in calls[0][0]
+    assert calls[0][1] == ("internship", "%San Jose%")
+    assert calls[1][1][-2:] == (50, 50)
+
+
+def test_events_include_filtered_total_metadata(monkeypatch):
+    calls = []
+
+    def fake_query(sql, params=(), fetch="all", commit=False):
+        calls.append((sql, params, fetch))
+        if fetch == "one":
+            return {"total": 4}
+        return [{"id": 8, "name": "Career event"}]
+
+    monkeypatch.setattr(main, "query_db", fake_query)
+    response = client.get("/events?city=Palo%20Alto&limit=50&offset=0&include_total=true")
+    assert response.status_code == 200
+    assert response.json()["total"] == 4
+    assert response.json()["items"] == [{"id": 8, "name": "Career event"}]
+    assert calls[0][2] == "one"
+    assert "COUNT(*)" in calls[0][0]
+
+
 def test_company_events_rejects_non_company(monkeypatch):
     main.app.dependency_overrides[get_authenticated_user] = lambda: {"id": 4, "role": "student"}
     try:

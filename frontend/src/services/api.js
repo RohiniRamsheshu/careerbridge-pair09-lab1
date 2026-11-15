@@ -85,7 +85,8 @@ export function getJobs(filters = {}) {
   return request(`/jobs?${params.toString()}`);
 }
 export function buildJobQuery(filters = {}) {
-  const params = new URLSearchParams({ limit: "50", offset: "0" });
+  const params = new URLSearchParams({ limit: String(filters.limit ?? 50), offset: String(filters.offset ?? 0) });
+  if (filters.include_total) params.set("include_total", "true");
   if (filters.title) params.set("title", filters.title);
   if (filters.company) params.set("company", filters.company);
   if (filters.category) params.set("category", filters.category);
@@ -110,7 +111,8 @@ export function searchStudents(filters = {}) {
 }
 export function applyToJob(jobId, resumePath = null) { return request(`/applications/${jobId}/apply`, { method: "POST", body: JSON.stringify(resumePath ? { resume_path: resumePath } : {}) }); }
 export function getEvents(filters = {}) {
-  const params = new URLSearchParams({ limit: "50", offset: "0" });
+  const params = new URLSearchParams({ limit: String(filters.limit ?? 50), offset: String(filters.offset ?? 0) });
+  if (filters.include_total) params.set("include_total", "true");
   if (filters.name) params.set("name", filters.name);
   if (filters.city) params.set("city", filters.city);
   if (filters.event_date) params.set("event_date", filters.event_date);

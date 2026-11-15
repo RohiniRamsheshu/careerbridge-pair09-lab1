@@ -138,4 +138,35 @@ UNIQUE KEY `uq_student_skill` (`student_user_id`,`skill`),
 CONSTRAINT `student_skills_ibfk_1` FOREIGN KEY (`student_user_id`) REFERENCES `student_profiles` (`user_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `event_outbox` (
+`id` bigint unsigned NOT NULL AUTO_INCREMENT,
+`event_id` char(36) NOT NULL,
+`topic` varchar(200) NOT NULL,
+`aggregate_id` bigint unsigned NOT NULL,
+`aggregate_type` varchar(80) NOT NULL,
+`payload` json NOT NULL,
+`trace_id` char(36) NOT NULL,
+`occurred_at` varchar(40) NOT NULL,
+`schema_version` int NOT NULL DEFAULT 1,
+`status` enum('pending','publishing','delivered','failed') NOT NULL DEFAULT 'pending',
+`attempts` int NOT NULL DEFAULT 0,
+`next_attempt_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+`locked_until` timestamp NULL DEFAULT NULL,
+`last_error` varchar(120) DEFAULT NULL,
+`created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+`delivered_at` timestamp NULL DEFAULT NULL,
+PRIMARY KEY (`id`),
+UNIQUE KEY `uq_event_outbox_event_id` (`event_id`),
+KEY `idx_event_outbox_ready` (`status`,`next_attempt_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `processed_events` (
+`event_id` char(36) NOT NULL,
+`topic` varchar(200) NOT NULL,
+`aggregate_id` bigint unsigned NOT NULL,
+`trace_id` char(36) NOT NULL,
+`processed_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+PRIMARY KEY (`event_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS=1;

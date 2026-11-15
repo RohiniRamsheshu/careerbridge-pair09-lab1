@@ -1,0 +1,41 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1794571923012,8313,Login,200,OK,Assistant workload 1-5,text,true,,481,339,20,20,http://127.0.0.1:19090/auth/login,8312,0,4
+1794571924026,11329,Login,200,OK,Assistant workload 1-9,text,true,,481,339,20,20,http://127.0.0.1:19090/auth/login,11329,0,6
+1794571923492,11994,Login,200,OK,Assistant workload 1-7,text,true,,481,339,20,20,http://127.0.0.1:19090/auth/login,11994,0,2
+1794571924747,11128,Login,200,OK,Assistant workload 1-12,text,true,,481,339,20,20,http://127.0.0.1:19090/auth/login,11127,0,3
+1794571922742,14366,Login,200,OK,Assistant workload 1-2,text,true,,481,339,20,20,http://127.0.0.1:19090/auth/login,14366,0,108
+1794571924501,13446,Login,200,OK,Assistant workload 1-11,text,true,,481,339,20,20,http://127.0.0.1:19090/auth/login,13446,0,2
+1794571922795,15190,Login,200,OK,Assistant workload 1-4,text,true,,481,339,20,20,http://127.0.0.1:19090/auth/login,15189,0,55
+1794571923235,14999,Login,200,OK,Assistant workload 1-6,text,true,,481,339,20,20,http://127.0.0.1:19090/auth/login,14999,0,12
+1794571931416,6935,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-5,text,true,,800,422,20,20,http://127.0.0.1:19090/assistant/chat,6935,0,4
+1794571925258,13145,Login,200,OK,Assistant workload 1-14,text,true,,481,339,19,19,http://127.0.0.1:19090/auth/login,13145,0,2
+1794571926186,12559,Login,200,OK,Assistant workload 1-18,text,true,,481,339,19,19,http://127.0.0.1:19090/auth/login,12559,0,6
+1794571922742,16391,Login,200,OK,Assistant workload 1-1,text,true,,481,339,19,19,http://127.0.0.1:19090/auth/login,16391,0,108
+1794571925708,13591,Login,200,OK,Assistant workload 1-16,text,true,,481,339,19,19,http://127.0.0.1:19090/auth/login,13591,0,3
+1794571924243,15386,Login,200,OK,Assistant workload 1-10,text,true,,481,339,19,19,http://127.0.0.1:19090/auth/login,15386,0,2
+1794571923746,15942,Login,200,OK,Assistant workload 1-8,text,true,,481,339,19,19,http://127.0.0.1:19090/auth/login,15942,0,5
+1794571926698,13134,Login,200,OK,Assistant workload 1-20,text,true,,481,339,19,19,http://127.0.0.1:19090/auth/login,13133,0,5
+1794571922742,17257,Login,200,OK,Assistant workload 1-3,text,true,,481,339,19,19,http://127.0.0.1:19090/auth/login,17256,0,108
+1794571935493,5222,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-7,text,true,,798,422,19,19,http://127.0.0.1:19090/assistant/chat,5222,0,3
+1794571935878,4868,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-12,text,true,,799,422,18,18,http://127.0.0.1:19090/assistant/chat,4868,0,2
+1794571925562,15183,Login,200,OK,Assistant workload 1-15,text,true,,481,339,18,18,http://127.0.0.1:19090/auth/login,15183,0,13
+1794571925001,15766,Login,200,OK,Assistant workload 1-13,text,true,,481,339,17,17,http://127.0.0.1:19090/auth/login,15766,0,4
+1794571935359,5597,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-9,text,true,,799,422,17,17,http://127.0.0.1:19090/assistant/chat,5597,0,2
+1794571925936,15332,Login,200,OK,Assistant workload 1-17,text,true,,481,339,16,16,http://127.0.0.1:19090/auth/login,15332,0,5
+1794571926437,14973,Login,200,OK,Assistant workload 1-19,text,true,,481,339,16,16,http://127.0.0.1:19090/auth/login,14972,0,15
+1794571937111,4613,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-2,text,true,,800,422,16,16,http://127.0.0.1:19090/assistant/chat,4612,0,2
+1794571937988,3853,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-4,text,true,,799,422,15,15,http://127.0.0.1:19090/assistant/chat,3853,0,10
+1794571938751,4199,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-18,text,true,,800,422,14,14,http://127.0.0.1:19090/assistant/chat,4198,0,2
+1794571938236,4720,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-6,text,true,,799,422,13,13,http://127.0.0.1:19090/assistant/chat,4720,0,2
+1794571938405,4612,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-14,text,true,,800,422,12,12,http://127.0.0.1:19090/assistant/chat,4612,0,5
+1794571937950,5088,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-11,text,true,,800,422,11,11,http://127.0.0.1:19090/assistant/chat,5088,0,2
+1794571939698,4606,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-8,text,true,,800,422,10,10,http://127.0.0.1:19090/assistant/chat,4605,0,2
+1794571939136,5198,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-1,text,true,,800,422,9,9,http://127.0.0.1:19090/assistant/chat,5198,0,1
+1794571940001,4364,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-3,text,true,,800,422,8,8,http://127.0.0.1:19090/assistant/chat,4363,0,2
+1794571940748,3736,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-15,text,true,,800,422,7,7,http://127.0.0.1:19090/assistant/chat,3735,0,2
+1794571939835,4784,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-20,text,true,,800,422,6,6,http://127.0.0.1:19090/assistant/chat,4784,0,2
+1794571939633,5077,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-10,text,true,,799,422,5,5,http://127.0.0.1:19090/assistant/chat,5076,0,1
+1794571939302,5410,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-16,text,true,,800,422,4,4,http://127.0.0.1:19090/assistant/chat,5410,0,2
+1794571940771,4092,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-13,text,true,,799,422,3,3,http://127.0.0.1:19090/assistant/chat,4091,0,2
+1794571941273,3748,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-17,text,true,,800,422,2,2,http://127.0.0.1:19090/assistant/chat,3747,0,2
+1794571941412,3759,Assistant chat - bounded read-only prompt,200,OK,Assistant workload 1-19,text,true,,800,422,1,1,http://127.0.0.1:19090/assistant/chat,3758,0,2

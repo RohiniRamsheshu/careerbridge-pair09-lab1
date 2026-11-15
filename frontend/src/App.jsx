@@ -11,6 +11,8 @@ import LoginPage from "./pages/LoginPage.jsx";
 import RegisterPage from "./pages/RegisterPage.jsx";
 import SavedItemsPage from "./pages/SavedItemsPage.jsx";
 import { getCompanyDashboard, getCompanyEvents, getCompanyJobs, getSavedItems, getStudentApplications, getStudentDashboard } from "./services/api.js";
+import { useDispatch } from "react-redux";
+import { loggedOut, sessionSet } from "./store/slices.js";
 
 function Layout({ children, user, onLogout }) {
   const navigate = useNavigate();
@@ -86,25 +88,26 @@ function hasStoredAccessToken() {
 function App() {
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(hasStoredAccessToken);
+  const dispatch = useDispatch();
   useEffect(() => {
-    const unauthorized = () => { logout(); setUser(null); };
+    const unauthorized = () => { logout(); setUser(null); dispatch(loggedOut()); };
     window.addEventListener("careerbridge:unauthorized", unauthorized);
     if (hasStoredAccessToken()) {
       getMe()
         .then((sessionUser) => {
           if (!isAuthenticatedUser(sessionUser)) throw new Error("Invalid session response.");
-          setUser(sessionUser);
+          setUser(sessionUser); dispatch(sessionSet(sessionUser));
         })
-        .catch(() => { logout(); setUser(null); })
+        .catch(() => { logout(); setUser(null); dispatch(loggedOut()); })
         .finally(() => setChecking(false));
     }
     return () => window.removeEventListener("careerbridge:unauthorized", unauthorized);
-  }, []);
+  }, [dispatch]);
   if (checking) return <main className="login-page"><div className="login-card"><p className="subtitle">Loading your session...</p></div></main>;
   return <BrowserRouter><Routes>
-    <Route path="/login" element={user ? <Navigate to={user.role === "company" ? "/company" : "/"} replace /> : <LoginPage onLogin={setUser} />} />
+    <Route path="/login" element={user ? <Navigate to={user.role === "company" ? "/company" : "/"} replace /> : <LoginPage onLogin={(sessionUser) => { setUser(sessionUser); dispatch(sessionSet(sessionUser)); }} />} />
     <Route path="/register" element={user ? <Navigate to="/" replace /> : <RegisterPage />} />
-    <Route path="*" element={<Protected user={user}><Layout user={user} onLogout={() => { logout(); setUser(null); }}><Routes>
+    <Route path="*" element={<Protected user={user}><Layout user={user} onLogout={() => { logout(); setUser(null); dispatch(loggedOut()); }}><Routes>
       <Route path="/" element={<Dashboard user={user} />} />
       <Route path="/jobs" element={<Protected user={user} role="student"><JobsPage /></Protected>} />
       <Route path="/events" element={<Protected user={user} role="student"><EventsPage /></Protected>} />

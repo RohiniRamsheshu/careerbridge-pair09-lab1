@@ -1,0 +1,23 @@
+{
+  "scenario": "real ambiguous assistant request",
+  "prompt": "I need guidance on choosing between two offers.",
+  "endpoint": "/assistant/chat",
+  "http_status": 200,
+  "trace_id": "664f4f64-8c3e-4507-a8ef-41bd37c61c01",
+  "answer_observed": "Based on the student's preferences, I've searched for internship opportunities in their city. Here are the results: Offer 1: A 3-month internship at a tech firm in the city, with a stipend of $15,...",
+  "metrics": {
+    "prompt_tokens": 989,
+    "completion_tokens": 62,
+    "total_tokens": 1051,
+    "token_source": "provider-reported",
+    "context_window": 4096,
+    "context_utilization_percent": 25.66,
+    "model_calls": 2,
+    "tool_calls": 1,
+    "repairs": 0,
+    "model_ms": 86915.41788,
+    "tool_ms": 1727.986873,
+    "total_ms": 89215.470929
+  },
+  "assessment": "Real Ollama invocation confirmed, but response accuracy failed because the answer introduced an unsupported generic offer. This is evidence of a remaining agent fallback defect, not a passing scenario."
+}

@@ -1,0 +1,277 @@
+{
+  "harness": "production-agent-modules",
+  "cases": [
+    {
+      "name": "read_only_success",
+      "input": "read_only_success",
+      "messages": [],
+      "tools": [
+        "get_student_preferences",
+        "search_jobs",
+        "get_job_details",
+        "search_events",
+        "save_job_or_event"
+      ],
+      "arguments": {},
+      "tool_calls": [],
+      "results": "I found these database-backed matches:\n- Job ID 1: Synthetic Data Internship at Synthetic Co in San Jose (salary 100000, deadline 2026-12-31).",
+      "final_answer": "I found these database-backed matches:\n- Job ID 1: Synthetic Data Internship at Synthetic Co in San Jose (salary 100000, deadline 2026-12-31).",
+      "guardrail_outcome": "passed",
+      "errors": [],
+      "retries": 0,
+      "token_counts": {
+        "prompt_tokens": null,
+        "completion_tokens": null,
+        "estimated": true
+      },
+      "pass": true,
+      "elapsed_ms": 8.76
+    },
+    {
+      "name": "event_no_match_or_result",
+      "input": "event_no_match_or_result",
+      "messages": [],
+      "tools": [
+        "get_student_preferences",
+        "search_jobs",
+        "get_job_details",
+        "search_events",
+        "save_job_or_event"
+      ],
+      "arguments": {},
+      "tool_calls": [],
+      "results": "I found these database-backed matches:\n- Event ID 2: Synthetic Career Event on 2026-12-01 at Palo Alto.",
+      "final_answer": "I found these database-backed matches:\n- Event ID 2: Synthetic Career Event on 2026-12-01 at Palo Alto.",
+      "guardrail_outcome": "passed",
+      "errors": [],
+      "retries": 0,
+      "token_counts": {
+        "prompt_tokens": null,
+        "completion_tokens": null,
+        "estimated": true
+      },
+      "pass": true,
+      "elapsed_ms": 0.3
+    },
+    {
+      "name": "history_follow_up",
+      "input": "history_follow_up",
+      "messages": [],
+      "tools": [
+        "get_student_preferences",
+        "search_jobs",
+        "get_job_details",
+        "search_events",
+        "save_job_or_event"
+      ],
+      "arguments": {},
+      "tool_calls": [],
+      "results": "I found these database-backed matches:\n- Event ID 2: Synthetic Career Event on 2026-12-01 at Palo Alto.",
+      "final_answer": "I found these database-backed matches:\n- Event ID 2: Synthetic Career Event on 2026-12-01 at Palo Alto.",
+      "guardrail_outcome": "passed",
+      "errors": [],
+      "retries": 0,
+      "token_counts": {
+        "prompt_tokens": null,
+        "completion_tokens": null,
+        "estimated": true
+      },
+      "pass": true,
+      "elapsed_ms": 0.55
+    },
+    {
+      "name": "malformed_arguments",
+      "input": "malformed_arguments",
+      "messages": [],
+      "tools": [
+        "get_student_preferences",
+        "search_jobs",
+        "get_job_details",
+        "search_events",
+        "save_job_or_event"
+      ],
+      "arguments": {},
+      "tool_calls": [],
+      "results": "Error: unknown argument: unknown. No database action was taken.",
+      "final_answer": "Error: unknown argument: unknown. No database action was taken.",
+      "guardrail_outcome": "passed",
+      "errors": [],
+      "retries": 0,
+      "token_counts": {
+        "prompt_tokens": null,
+        "completion_tokens": null,
+        "estimated": true
+      },
+      "pass": true,
+      "elapsed_ms": 0.01
+    },
+    {
+      "name": "unknown_tool",
+      "input": "unknown_tool",
+      "messages": [],
+      "tools": [
+        "get_student_preferences",
+        "search_jobs",
+        "get_job_details",
+        "search_events",
+        "save_job_or_event"
+      ],
+      "arguments": {},
+      "tool_calls": [],
+      "results": "Error: unknown tool. No database action was taken.",
+      "final_answer": "Error: unknown tool. No database action was taken.",
+      "guardrail_outcome": "passed",
+      "errors": [],
+      "retries": 0,
+      "token_counts": {
+        "prompt_tokens": null,
+        "completion_tokens": null,
+        "estimated": true
+      },
+      "pass": true,
+      "elapsed_ms": 0.01
+    },
+    {
+      "name": "injection_data_is_delimited",
+      "input": "injection_data_is_delimited",
+      "messages": [],
+      "tools": [
+        "get_student_preferences",
+        "search_jobs",
+        "get_job_details",
+        "search_events",
+        "save_job_or_event"
+      ],
+      "arguments": {},
+      "tool_calls": [],
+      "results": "<retrieved_data>{\"id\": 1, \"title\": \"Synthetic Data Internship\", \"company\": \"Synthetic Co\", \"location\": \"San Jose\", \"salary\": \"100000\", \"deadline\": \"2026-12-31\"}</retrieved_data>",
+      "final_answer": "<retrieved_data>{\"id\": 1, \"title\": \"Synthetic Data Internship\", \"company\": \"Synthetic Co\", \"location\": \"San Jose\", \"salary\": \"100000\", \"deadline\": \"2026-12-31\"}</retrieved_data>",
+      "guardrail_outcome": "passed",
+      "errors": [],
+      "retries": 0,
+      "token_counts": {
+        "prompt_tokens": null,
+        "completion_tokens": null,
+        "estimated": true
+      },
+      "pass": true,
+      "elapsed_ms": 0.05
+    },
+    {
+      "name": "accepted_write_proposal",
+      "input": "accepted_write_proposal",
+      "messages": [],
+      "tools": [
+        "get_student_preferences",
+        "search_jobs",
+        "get_job_details",
+        "search_events",
+        "save_job_or_event"
+      ],
+      "arguments": {},
+      "tool_calls": [],
+      "results": {
+        "proposal_created": true,
+        "approved": true,
+        "error": null,
+        "write_required": true
+      },
+      "final_answer": "{'proposal_created': True, 'approved': True, 'error': None, 'write_required': True}",
+      "guardrail_outcome": "passed",
+      "errors": [],
+      "retries": 0,
+      "token_counts": {
+        "prompt_tokens": null,
+        "completion_tokens": null,
+        "estimated": true
+      },
+      "pass": true,
+      "elapsed_ms": 0.21
+    },
+    {
+      "name": "declined_write",
+      "input": "declined_write",
+      "messages": [],
+      "tools": [
+        "get_student_preferences",
+        "search_jobs",
+        "get_job_details",
+        "search_events",
+        "save_job_or_event"
+      ],
+      "arguments": {},
+      "tool_calls": [],
+      "results": {
+        "proposal_created": true,
+        "approved": false,
+        "error": "cancelled",
+        "write_required": false
+      },
+      "final_answer": "{'proposal_created': True, 'approved': False, 'error': 'cancelled', 'write_required': False}",
+      "guardrail_outcome": "passed",
+      "errors": [],
+      "retries": 0,
+      "token_counts": {
+        "prompt_tokens": null,
+        "completion_tokens": null,
+        "estimated": true
+      },
+      "pass": true,
+      "elapsed_ms": 0.14
+    },
+    {
+      "name": "bounded_repair",
+      "input": "bounded_repair",
+      "messages": [],
+      "tools": [
+        "get_student_preferences",
+        "search_jobs",
+        "get_job_details",
+        "search_events",
+        "save_job_or_event"
+      ],
+      "arguments": {},
+      "tool_calls": [],
+      "results": "I found these database-backed matches:\n- Job ID 1: Synthetic Data Internship at Synthetic Co in San Jose (salary 100000, deadline 2026-12-31).",
+      "final_answer": "I found these database-backed matches:\n- Job ID 1: Synthetic Data Internship at Synthetic Co in San Jose (salary 100000, deadline 2026-12-31).",
+      "guardrail_outcome": "passed",
+      "errors": [],
+      "retries": 0,
+      "token_counts": {
+        "prompt_tokens": null,
+        "completion_tokens": null,
+        "estimated": true
+      },
+      "pass": true,
+      "elapsed_ms": 0.27
+    },
+    {
+      "name": "iteration_limit",
+      "input": "iteration_limit",
+      "messages": [],
+      "tools": [
+        "get_student_preferences",
+        "search_jobs",
+        "get_job_details",
+        "search_events",
+        "save_job_or_event"
+      ],
+      "arguments": {},
+      "tool_calls": [],
+      "results": "I found these database-backed matches:\n- Job ID 1: Synthetic Data Internship at Synthetic Co in San Jose (salary 100000, deadline 2026-12-31).",
+      "final_answer": "I found these database-backed matches:\n- Job ID 1: Synthetic Data Internship at Synthetic Co in San Jose (salary 100000, deadline 2026-12-31).",
+      "guardrail_outcome": "passed",
+      "errors": [],
+      "retries": 0,
+      "token_counts": {
+        "prompt_tokens": null,
+        "completion_tokens": null,
+        "estimated": true
+      },
+      "pass": true,
+      "elapsed_ms": 0.2
+    }
+  ],
+  "pass_count": 10,
+  "fail_count": 0
+}
