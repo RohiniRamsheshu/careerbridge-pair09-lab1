@@ -5,8 +5,6 @@ services:
     image: mysql:8.4
     environment:
       MYSQL_DATABASE: ${DB_NAME:-handshake_lab1_local}
-      MYSQL_USER: ${DB_USER:-careerbridge}
-      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD for the disposable local database}
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD for the disposable local database}
     ports:
       - "${MYSQL_PORT:-13306}:3306"
@@ -22,7 +20,7 @@ services:
   mongo:
     image: mongo:8.0
     ports:
-      - "27017:27017"
+      - "27018:27017"
     volumes:
       - p09-mongo-data:/data/db
     healthcheck:

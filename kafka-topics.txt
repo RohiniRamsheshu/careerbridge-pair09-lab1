@@ -1,0 +1,15 @@
+__consumer_offsets
+p09.application.created
+p09.application.created.dlq
+p09.application.status_changed
+p09.application.status_changed.dlq
+p09.application.updated
+p09.application.updated.dlq
+p09.event.registration_created
+p09.event.registration_created.dlq
+p09.job.created
+p09.job.created.dlq
+p09.memory.consolidate
+p09.memory.consolidate.dlq
+p09.memory.updated
+p09.memory.updated.dlq

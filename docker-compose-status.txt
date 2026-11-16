@@ -1,0 +1,8 @@
+NAME                               IMAGE                            COMMAND                  SERVICE         CREATED         STATUS                   PORTS
+p09-careerbridge-backend-1         p09-careerbridge-backend         "uvicorn backend.app…"   backend         4 minutes ago   Up 3 minutes (healthy)   0.0.0.0:9090->9090/tcp, [::]:9090->9090/tcp
+p09-careerbridge-frontend-1        p09-careerbridge-frontend        "/docker-entrypoint.…"   frontend        4 minutes ago   Up 3 minutes (healthy)   0.0.0.0:5173->80/tcp, [::]:5173->80/tcp
+p09-careerbridge-kafka-1           apache/kafka:3.9.0               "/__cacert_entrypoin…"   kafka           4 minutes ago   Up 4 minutes (healthy)   0.0.0.0:19092->19092/tcp, [::]:19092->19092/tcp
+p09-careerbridge-mongo-1           mongo:8.0                        "docker-entrypoint.s…"   mongo           4 minutes ago   Up 4 minutes (healthy)   0.0.0.0:27018->27017/tcp, [::]:27018->27017/tcp
+p09-careerbridge-mysql-1           mysql:8.4                        "docker-entrypoint.s…"   mysql           4 minutes ago   Up 4 minutes (healthy)   0.0.0.0:13306->3306/tcp, [::]:13306->3306/tcp
+p09-careerbridge-outbox-worker-1   p09-careerbridge-outbox-worker   "python -m backend.a…"   outbox-worker   4 minutes ago   Up 3 minutes (healthy)   9090/tcp
+p09-careerbridge-worker-1          p09-careerbridge-worker          "python -m backend.a…"   worker          4 minutes ago   Up 3 minutes (healthy)   9090/tcp
