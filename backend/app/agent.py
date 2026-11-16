@@ -55,6 +55,29 @@ def _needs_retrieval(text):
     return any(word in lowered for word in ("find", "search", "job", "internship", "event", "company"))
 
 
+_EXPLICIT_MEMORY_PREFIX = re.compile(
+    r"^(?:please\s+)?remember(?:\s+this|\s+that)?(?:\s+for\s+future\s+conversations?)?\s*[:,-]?\s*",
+    re.IGNORECASE,
+)
+
+
+def parse_memory_intent(user_message):
+    """Parse only an explicit, structured request to store one memory."""
+    text = re.sub(r"\s+", " ", (user_message or "").strip())
+    prefix = _EXPLICIT_MEMORY_PREFIX.match(text)
+    if not prefix:
+        return None
+    body = text[prefix.end():].strip()
+    match = re.match(r"my\s+([A-Za-z][A-Za-z0-9 _-]{1,79})\s+is\s+([^,.!?]{1,500})", body, re.IGNORECASE)
+    if not match:
+        return {"invalid": True}
+    key = re.sub(r"[^a-z0-9]+", "_", match.group(1).strip().lower()).strip("_")
+    value = match.group(2).strip()
+    if not key or not value:
+        return {"invalid": True}
+    return {"memory_key": key[:80], "value": value[:500], "kind": "preference"}
+
+
 CAPABILITY_RESPONSE = (
     "I help students find real jobs and events, refine searches with follow-up questions, "
     "and propose saves that require your explicit confirmation before anything is written."
@@ -66,6 +89,11 @@ def _deterministic_route(user_message, conversation):
     text = re.sub(r"\s+", " ", (user_message or "").strip().lower())
     if not text:
         return ("answer", "Please tell me whether you want to search for jobs or events.")
+    memory_intent = parse_memory_intent(user_message)
+    if memory_intent:
+        if memory_intent.get("invalid"):
+            return ("answer", "To store memory, say: 'Remember this: My preferred city is San Jose.'")
+        return ("save_memory", memory_intent)
     if re.search(r"\bwhat (?:do|can) (?:you|u) do\b|\bhow can you help\b|\bhelp\b", text):
         return ("answer", CAPABILITY_RESPONSE)
     if re.fullmatch(r"(?:hi|hello|hey|good morning|good afternoon|good evening)(?:[, ]+(?:there|how are you|how's it going|how are things))?[!. ?]*", text):
@@ -378,9 +406,23 @@ def run_assistant(user_message, conversation, user, query_db, model=None, memory
                     result = execute_tool("search_jobs", args, user, query_db)
                     tool_calls += 1
             else:
-                execution_name = "save_job_or_event" if route_name == "save" else route_name
-                result = execute_tool(execution_name, route_value, user, query_db)
-                tool_calls += 1
+                if route_name == "save_memory":
+                    if memory_repo is None:
+                        answer = "Memory storage is unavailable in this environment."
+                        result = None
+                    else:
+                        memory_repo.save_explicit_memory(user["id"], **route_value)
+                        answer = f"I’ll remember your {route_value['memory_key'].replace('_', ' ')}: {route_value['value']}"
+                        result = None
+                else:
+                    execution_name = "save_job_or_event" if route_name == "save" else route_name
+                    result = execute_tool(execution_name, route_value, user, query_db)
+                    tool_calls += 1
+                if route_name == "save_memory":
+                    conversation.append({"role": "assistant", "content": answer})
+                    logger.info("assistant_memory_saved student_id=%s memory_key=%s", user["id"], route_value["memory_key"])
+                    metrics.update({"model_calls": 0, "tool_calls": 0, "repairs": 0, "model_ms": 0.0, "tool_ms": 0.0, "trace_id": trace_id})
+                    return answer
             tool_ms = (perf_counter() - tool_started) * 1000
             if result.startswith("Error:"):
                 answer = result

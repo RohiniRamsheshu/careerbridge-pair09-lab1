@@ -1,5 +1,29 @@
 name: p09-careerbridge
 
+x-domain-environment: &domain-environment
+  PAIR: "09"
+  PORT_BASE: "9090"
+  RESOURCE_PREFIX: p09
+  KAFKA_PREFIX: p09
+  DB_HOST: mysql
+  DB_PORT: 3306
+  DB_NAME: ${DB_NAME:-handshake_lab1_local}
+  DB_USER: ${DB_USER:-careerbridge}
+  DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD for the disposable local database}
+  JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET for the disposable local environment}
+  KAFKA_ENABLED: "1"
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  MONGO_URI: mongodb://mongo:27017
+  MONGO_DB: p09_careerbridge
+
+x-domain-dependencies: &domain-dependencies
+  mysql:
+    condition: service_healthy
+  mongo:
+    condition: service_healthy
+  kafka-init:
+    condition: service_completed_successfully
+
 services:
   mysql:
     image: mysql:8.4
@@ -90,6 +114,7 @@ services:
       DB_USER: ${DB_USER:-careerbridge}
       DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD for the disposable local database}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET for the disposable local environment}
+      RESUME_DIR: /app/backend/uploads/resumes
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       KAFKA_ENABLED: "1"
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
@@ -97,6 +122,8 @@ services:
       MONGO_DB: p09_careerbridge
     ports:
       - "9090:9090"
+    volumes:
+      - p09-resume-data:/app/backend/uploads/resumes
     depends_on:
       mysql:
         condition: service_healthy
@@ -170,6 +197,106 @@ services:
       timeout: 5s
       retries: 6
 
+  student-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.student
+    command: ["python", "-m", "backend.app.service_entrypoint", "--service", "student"]
+    environment:
+      <<: *domain-environment
+      SERVICE_PORT: "9091"
+    expose: ["9091"]
+    depends_on: *domain-dependencies
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9091/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  company-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.company
+    command: ["python", "-m", "backend.app.service_entrypoint", "--service", "company"]
+    environment:
+      <<: *domain-environment
+      SERVICE_PORT: "9092"
+    expose: ["9092"]
+    depends_on: *domain-dependencies
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9092/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  job-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.job
+    command: ["python", "-m", "backend.app.service_entrypoint", "--service", "job"]
+    environment:
+      <<: *domain-environment
+      SERVICE_PORT: "9093"
+    expose: ["9093"]
+    depends_on: *domain-dependencies
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9093/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  application-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.application
+    command: ["python", "-m", "backend.app.service_entrypoint", "--service", "application"]
+    environment:
+      <<: *domain-environment
+      SERVICE_PORT: "9094"
+      RESUME_DIR: /app/backend/uploads/resumes
+    expose: ["9094"]
+    volumes:
+      - p09-resume-data:/app/backend/uploads/resumes
+    depends_on: *domain-dependencies
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9094/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  event-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.event
+    command: ["python", "-m", "backend.app.service_entrypoint", "--service", "event"]
+    environment:
+      <<: *domain-environment
+      SERVICE_PORT: "9095"
+    expose: ["9095"]
+    depends_on: *domain-dependencies
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9095/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  assistant-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.assistant
+    command: ["python", "-m", "backend.app.service_entrypoint", "--service", "assistant"]
+    environment:
+      <<: *domain-environment
+      SERVICE_PORT: "9096"
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    expose: ["9096"]
+    depends_on: *domain-dependencies
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9096/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
   frontend:
     build:
       context: ./frontend
@@ -185,3 +312,4 @@ volumes:
   p09-mysql-data:
   p09-kafka-data:
   p09-mongo-data:
+  p09-resume-data:

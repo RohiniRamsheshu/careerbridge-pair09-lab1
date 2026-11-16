@@ -57,3 +57,20 @@ def test_processed_event_claim_is_durable_and_duplicate_safe():
     assert record_processed_event(envelope, lambda: second) is False
     assert first.commits == 1
     assert second.commits == 1
+
+
+def test_processed_event_claim_survives_worker_restart():
+    envelope = EventEnvelope.create("job.created", 11, "job", {"title": "Restart safe"})
+    connections = iter([FakeConnection(rowcount=1), FakeConnection(rowcount=0)])
+    handler_calls = []
+
+    def claim():
+        return record_processed_event(envelope, lambda: next(connections))
+
+    if claim():
+        handler_calls.append(envelope.event_id)
+    # A fresh worker instance sees the durable unique event_id claim and skips it.
+    if claim():
+        handler_calls.append(envelope.event_id)
+
+    assert handler_calls == [envelope.event_id]

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: p09-careerbridge-config
+  namespace: p09-careerbridge
+data:
+  PAIR: "09"
+  PORT_BASE: "9090"
+  RESOURCE_PREFIX: p09
+  KAFKA_PREFIX: p09
+  KAFKA_BOOTSTRAP_SERVERS: p09-kafka:9092
+  MONGO_URI: mongodb://p09-mongo:27017
+  MONGO_DB: p09_careerbridge
+  DB_HOST: p09-mysql
+  DB_PORT: "3306"
+  DB_NAME: handshake_lab1_local
+  DB_USER: careerbridge
+  KAFKA_ENABLED: "1"
+  RESUME_DIR: /app/backend/uploads/resumes

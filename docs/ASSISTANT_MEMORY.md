@@ -29,6 +29,16 @@ The existing five-tool hand-built agent loop and save-confirmation workflow rema
 the authority for tool execution and writes. Memory is not a substitute for live
 database results.
 
+Explicit user memory writes are supported through `POST /assistant/memory` with
+`memory_key`, `value`, and optional `kind`. The endpoint requires an authenticated
+student and uses that authenticated user's ID; a client-supplied student ID is
+not part of the request model. Explicit natural-language phrases matching the
+structured `Remember this: My <key> is <value>` form use the same repository
+upsert. Ordinary conversation text does not write memory. Repeated explicit
+writes for the same active student/key update the existing memory instead of
+creating another active record and preserve the existing `memory.updated` Kafka
+publication path.
+
 ## Kafka relationship
 
 `student_memory` writes can publish the existing typed `memory.updated` event. The

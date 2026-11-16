@@ -28,8 +28,17 @@ class ConsumerProcessor:
                 if attempt < self.max_retries:
                     time.sleep(self.backoff_seconds * attempt)
             self.raw_dlq_publisher(source_topic, raw_value, exc)
+            logger.warning(
+                "kafka_event_dlq source_topic=%s event_type=%s error=%s attempts=%s",
+                source_topic, source_topic, type(exc).__name__, self.max_retries,
+            )
             return {"status": "dlq", "error_type": type(exc).__name__, "attempts": self.max_retries}
         if envelope.event_id in self.dedupe:
+            logger.info(
+                "kafka_event_duplicate topic=%s event_type=%s event_id=%s trace_id=%s aggregate_id=%s",
+                envelope.topic, envelope.topic, envelope.event_id, envelope.trace_id,
+                envelope.aggregate_id,
+            )
             return {"status": "duplicate", "event_id": envelope.event_id}
 
         last_error = None
@@ -37,6 +46,11 @@ class ConsumerProcessor:
             try:
                 self.handler(envelope)
                 self.dedupe.add(envelope.event_id)
+                logger.info(
+                    "kafka_event_processed topic=%s event_type=%s event_id=%s trace_id=%s aggregate_id=%s attempt=%s",
+                    envelope.topic, envelope.topic, envelope.event_id, envelope.trace_id,
+                    envelope.aggregate_id, attempt,
+                )
                 return {"status": "processed", "event_id": envelope.event_id, "attempt": attempt}
             except Exception as exc:  # bounded retry; offset remains uncommitted until success
                 last_error = exc
@@ -44,6 +58,11 @@ class ConsumerProcessor:
                     time.sleep(self.backoff_seconds * attempt)
 
         self.dlq_publisher(envelope, last_error)
+        logger.warning(
+            "kafka_event_dlq topic=%s event_type=%s event_id=%s trace_id=%s aggregate_id=%s error=%s attempts=%s",
+            envelope.topic, envelope.topic, envelope.event_id, envelope.trace_id,
+            envelope.aggregate_id, type(last_error).__name__, self.max_retries,
+        )
         return {"status": "dlq", "event_id": envelope.event_id, "attempts": self.max_retries}
 
     @staticmethod
@@ -56,7 +75,16 @@ class ConsumerProcessor:
         required = {"topic", "event_id", "trace_id", "aggregate_id", "aggregate_type", "payload", "occurred_at", "schema_version"}
         if set(body) != required or body["topic"] not in TOPICS:
             raise ValueError("invalid event envelope")
-        if not isinstance(body["aggregate_id"], int) or not isinstance(body["payload"], dict):
+        if (
+            not isinstance(body["event_id"], str)
+            or not isinstance(body["trace_id"], str)
+            or not isinstance(body["aggregate_id"], int)
+            or body["aggregate_id"] <= 0
+            or not isinstance(body["aggregate_type"], str)
+            or not isinstance(body["payload"], dict)
+            or not isinstance(body["occurred_at"], str)
+            or not isinstance(body["schema_version"], int)
+        ):
             raise ValueError("invalid event payload")
         return EventEnvelope(**body)
 

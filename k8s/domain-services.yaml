@@ -1,0 +1,168 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: p09-student
+  namespace: p09-careerbridge
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: p09-student }
+  template:
+    metadata: { labels: { app: p09-student } }
+    spec:
+      containers:
+        - name: student
+          image: p09-careerbridge/student:local
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "backend.app.service_entrypoint", "--service", "student"]
+          ports: [{ name: http, containerPort: 9091 }]
+          envFrom:
+            - configMapRef: { name: p09-careerbridge-config }
+            - secretRef: { name: p09-careerbridge-secrets }
+          resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
+          readinessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 5, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 15, periodSeconds: 20 }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: p09-student, namespace: p09-careerbridge }
+spec:
+  selector: { app: p09-student }
+  ports: [{ name: http, port: 9091, targetPort: http }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: p09-company, namespace: p09-careerbridge }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: p09-company } }
+  template:
+    metadata: { labels: { app: p09-company } }
+    spec:
+      containers:
+        - name: company
+          image: p09-careerbridge/company:local
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "backend.app.service_entrypoint", "--service", "company"]
+          ports: [{ name: http, containerPort: 9092 }]
+          envFrom: [{ configMapRef: { name: p09-careerbridge-config } }, { secretRef: { name: p09-careerbridge-secrets } }]
+          resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
+          readinessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 5, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 15, periodSeconds: 20 }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: p09-company, namespace: p09-careerbridge }
+spec:
+  selector: { app: p09-company }
+  ports: [{ name: http, port: 9092, targetPort: http }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: p09-job, namespace: p09-careerbridge }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: p09-job } }
+  template:
+    metadata: { labels: { app: p09-job } }
+    spec:
+      containers:
+        - name: job
+          image: p09-careerbridge/job:local
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "backend.app.service_entrypoint", "--service", "job"]
+          ports: [{ name: http, containerPort: 9093 }]
+          envFrom: [{ configMapRef: { name: p09-careerbridge-config } }, { secretRef: { name: p09-careerbridge-secrets } }]
+          resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
+          readinessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 5, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 15, periodSeconds: 20 }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: p09-job, namespace: p09-careerbridge }
+spec:
+  selector: { app: p09-job }
+  ports: [{ name: http, port: 9093, targetPort: http }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: p09-application, namespace: p09-careerbridge }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: p09-application } }
+  template:
+    metadata: { labels: { app: p09-application } }
+    spec:
+      containers:
+        - name: application
+          image: p09-careerbridge/application:local
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "backend.app.service_entrypoint", "--service", "application"]
+          ports: [{ name: http, containerPort: 9094 }]
+          envFrom: [{ configMapRef: { name: p09-careerbridge-config } }, { secretRef: { name: p09-careerbridge-secrets } }]
+          volumeMounts: [{ name: p09-resume-data, mountPath: /app/backend/uploads/resumes }]
+          resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
+          readinessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 5, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 15, periodSeconds: 20 }
+      volumes: [{ name: p09-resume-data, persistentVolumeClaim: { claimName: p09-resume-data } }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: p09-application, namespace: p09-careerbridge }
+spec:
+  selector: { app: p09-application }
+  ports: [{ name: http, port: 9094, targetPort: http }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: p09-event, namespace: p09-careerbridge }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: p09-event } }
+  template:
+    metadata: { labels: { app: p09-event } }
+    spec:
+      containers:
+        - name: event
+          image: p09-careerbridge/event:local
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "backend.app.service_entrypoint", "--service", "event"]
+          ports: [{ name: http, containerPort: 9095 }]
+          envFrom: [{ configMapRef: { name: p09-careerbridge-config } }, { secretRef: { name: p09-careerbridge-secrets } }]
+          resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
+          readinessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 5, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 15, periodSeconds: 20 }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: p09-event, namespace: p09-careerbridge }
+spec:
+  selector: { app: p09-event }
+  ports: [{ name: http, port: 9095, targetPort: http }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: p09-assistant, namespace: p09-careerbridge }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: p09-assistant } }
+  template:
+    metadata: { labels: { app: p09-assistant } }
+    spec:
+      containers:
+        - name: assistant
+          image: p09-careerbridge/assistant:local
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "backend.app.service_entrypoint", "--service", "assistant"]
+          ports: [{ name: http, containerPort: 9096 }]
+          envFrom: [{ configMapRef: { name: p09-careerbridge-config } }, { secretRef: { name: p09-careerbridge-secrets } }]
+          resources: { requests: { cpu: 200m, memory: 384Mi }, limits: { cpu: 1, memory: 1Gi } }
+          readinessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 5, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 15, periodSeconds: 20 }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: p09-assistant, namespace: p09-careerbridge }
+spec:
+  selector: { app: p09-assistant }
+  ports: [{ name: http, port: 9096, targetPort: http }]

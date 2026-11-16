@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildJobQuery, getApplicantProfile, getEventRegistrantProfile, getEventRegistrants, getEvents, getJob, getStudentApplications, isAuthenticatedUser, login, previewApplicantResume, updateStudentProfile } from "./api.js";
+import { buildJobQuery, getApplicantProfile, getEventRegistrantProfile, getEventRegistrants, getEvents, getJob, getStudentApplications, isAuthenticatedUser, login, previewApplicantResume, updateStudentProfile, uploadResume } from "./api.js";
 
 beforeEach(() => {
   vi.stubGlobal("localStorage", { getItem: () => null, setItem: vi.fn(), removeItem: vi.fn() });
@@ -107,5 +107,15 @@ describe("backend-supported job query mapping", () => {
     vi.stubGlobal("fetch", fetchMock);
     await updateStudentProfile({ name: "Updated Student", college: "SJSU" });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ name: "Updated Student", college: "SJSU" });
+  });
+
+  it("uploads resumes with FormData without overriding the multipart boundary header", async () => {
+    const fetchMock = vi.fn(async (_url, options) => ({ ok: true, status: 201, text: async () => JSON.stringify({ message: "Resume uploaded" }), options }));
+    vi.stubGlobal("fetch", fetchMock);
+    const file = new File(["%PDF-1.7\nresume"], "resume.pdf", { type: "application/pdf" });
+    await expect(uploadResume(file)).resolves.toEqual({ message: "Resume uploaded" });
+    const options = fetchMock.mock.calls[0][1];
+    expect(options.body).toBeInstanceOf(FormData);
+    expect(options.headers).not.toHaveProperty("Content-Type");
   });
 });
