@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: p09-resume-data, namespace: p09-careerbridge }
+spec:
+  accessModes: [ReadWriteMany]
+  resources: { requests: { storage: 5Gi } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: p09-frontend, namespace: p09-careerbridge }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: p09-frontend } }
+  template:
+    metadata: { labels: { app: p09-frontend } }
+    spec:
+      containers:
+        - name: frontend
+          image: p09-careerbridge/frontend:local
+          imagePullPolicy: IfNotPresent
+          ports: [{ name: http, containerPort: 80 }]
+          resources: { requests: { cpu: 50m, memory: 64Mi }, limits: { cpu: 250m, memory: 256Mi } }
+          readinessProbe: { httpGet: { path: /, port: http }, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /, port: http }, periodSeconds: 20 }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: p09-frontend, namespace: p09-careerbridge }
+spec:
+  type: LoadBalancer
+  selector: { app: p09-frontend }
+  ports: [{ name: http, port: 80, targetPort: http }]

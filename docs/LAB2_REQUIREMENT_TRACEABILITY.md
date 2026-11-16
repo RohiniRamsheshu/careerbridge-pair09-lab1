@@ -123,6 +123,15 @@ authorized in the current session.
 
 ## Current implementation updates
 
+## Execution update — 2026-11-15
+
+| Requirement | Implementation / verification | Status |
+|---|---|---|
+| Resume storage uses the configured persistent path | `backend/app/main.py` now derives directories from `config.RESUME_DIR`; Compose explicitly sets `/app/backend/uploads/resumes`; focused resume tests and full suite pass | **IMPLEMENTED**; live volume mount remains **BLOCKED** by Docker API permission |
+| Assistant instruction memory has approved default rules | `backend/app/mongo_repository.py` defines `DEFAULT_ASSISTANT_RULES` and opt-in idempotent `ensure_default_rules()`; isolated test verifies first seed and rerun behavior | **IMPLEMENTED**; no active database seeding performed |
+| 60-entry memory fixture includes required duplicates and contradictions | `backend/tests/test_mongo_memory.py` now asserts duplicate groups and contradictory-value groups before consolidation; full suite passes 94 tests | **VERIFIED** for isolated deterministic fixture |
+| Current backend regression baseline | `py -3.12 -m pytest -q` | **VERIFIED — 94 passed** |
+
 | Area | Implementation | Verification | Status |
 |---|---|---|---|
 | Student boundary | `backend/app/services/student_service.py` behind existing profile routes | Full backend suite remains green | Partially verified; modular, not independently deployed |
@@ -223,3 +232,43 @@ unit testing, disposable integration testing, and remaining source/evidence gaps
 | Student memory ownership isolation | `docs/MONGO_RECOVERY_REPORT.md` | Verified: second synthetic student did not see the first student's marker |
 | Memory Kafka integration | sanitized worker logs and `docs/MONGO_RECOVERY_REPORT.md` | Partially verified: memory consolidation topic subscription and synthetic publication observed |
 | Browser workflows and screenshots | `docs/BROWSER_ACCEPTANCE.md`, `docs/MANUAL_BROWSER_EVIDENCE_GUIDE.md` | Blocked: browser automation initialization unavailable; manual evidence required |
+
+## Kafka implementation pass (2026-11-15)
+
+| Requirement | Implementation | Verification | Status |
+|---|---|---|---|
+| Typed/versioned envelopes and required Pair 09 topics | `backend/app/events/contracts.py` | Focused Kafka tests | Unit-tested |
+| Producer acknowledgement and transactional outbox worker | `backend/app/events/producer.py`, `backend/app/events/outbox.py` | Existing disposable evidence; no new runtime run | Implemented; runtime not re-run |
+| Manual offsets after terminal processing | `backend/app/events/consumer.py` | Fake broker test proves commit follows handler success; retry test proves no early commit | Unit-tested |
+| Durable duplicate handling | `processed_events` primary key and `record_processed_event()` | First/replay and restart-safe claim tests | Unit-tested; runtime not re-run |
+| Bounded retries and DLQ metadata | `consumer.py`, `producer.py` | Retry/DLQ and raw-correlation tests | Unit-tested; runtime not re-run |
+| Event observability | producer/consumer/worker structured logs | Code review and test suite | Implemented; runtime log capture pending |
+| Three professor failure demonstrations | `docs/KAFKA_FAILURE_SCENARIOS.md`, historical `docs/KAFKA_EVIDENCE_BATCH2.md` | Docker unavailable in this pass | Historical evidence exists; current runtime re-verification blocked |
+
+## Submission-preparation verification (2026-11-15)
+
+| Requirement | Current evidence | Status |
+|---|---|---|
+| Professor rubric source | `C:\Users\Bhushan Waingankar\Downloads\Handshake_Lab2 (1).pdf` | Verified: 7 pages, 40 points |
+| Backend regression | `RUN_LOG.txt` and `docs/LAB2_EXECUTION_LOG.md` | Verified: 102 passed, 1 warning |
+| Frontend regression/build | `RUN_LOG.txt` | Verified: 24 passed; build passed |
+| Frontend lint | `RUN_LOG.txt` | Verified: exit 0; three known warnings |
+| Deterministic harness | `agent_harness.json`, `RUN_LOG.txt` | Verified: 10 passed, 0 failed |
+| Current Compose/Kafka/Mongo runtime | `docs/evidence/00_overview/STATUS.md` | Blocked by Docker named-pipe permission |
+| Browser and Redux DevTools evidence | `docs/BROWSER_ACCEPTANCE.md`, manual guide | Missing; manual screenshots required |
+| Kubernetes and AWS | `docs/LAB2_SUBMISSION_READINESS.md` | Missing/deferred; no resources created |
+| Final report readiness | `docs/LAB2_SUBMISSION_READINESS.md` | Not ready; gaps remain |
+
+## Service and Kubernetes preparation update (2026-11-15)
+
+| Requirement | Implementation/evidence | Status |
+|---|---|---|
+| Six logical service build targets | `backend/Dockerfile.student`, `.company`, `.job`, `.application`, `.event`, `.assistant`; `backend/app/service_entrypoint.py` | Implemented and unit-tested; runtime build not verified |
+| Six Compose domain processes | `docker-compose.yml` services `student-service`, `company-service`, `job-service`, `application-service`, `event-service`, `assistant-service` | Implemented; current Docker runtime verification blocked |
+| Compatibility API and workers in Kubernetes | `k8s/api-and-workers.yaml` | Implemented as preparation; not cluster-verified |
+| Kubernetes infrastructure and persistence | `k8s/infrastructure.yaml`, `k8s/storage-and-ingress.yaml`, `k8s/configmap.yaml`, `k8s/secret.example.yaml` | Prepared and YAML-parsed; not applied |
+| ECR/EKS preparation | `scripts/build-p09-images.ps1`, `scripts/deploy-p09-eks.ps1`, `k8s/README.md` | Prepared only; no AWS resources or cloud evidence |
+
+The six processes are route-boundary deployments over the existing modular
+FastAPI implementation. The repository does not claim six independently-owned
+domain databases or a completed microservice extraction.

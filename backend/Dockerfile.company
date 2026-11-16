@@ -1,0 +1,9 @@
+FROM python:3.12-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=/app
+WORKDIR /app
+COPY requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app ./backend/app
+EXPOSE 9092
+HEALTHCHECK --interval=10s --timeout=5s --retries=6 CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9092/health', timeout=3)"
+CMD ["python", "-m", "backend.app.service_entrypoint", "--service", "company"]

@@ -1,0 +1,72 @@
+CareerBridge Pair 09 — Lab 2 execution log
+Repository: C:\Users\Bhushan Waingankar\Desktop\handshake-lab1-codex
+Branch: fix/student-resume-upload-art-deco
+HEAD at execution: 4fc0638e535515a561e50918a42a81cad322005d
+
+2026-11-15 — Professor rubric verification
+Command: py -3.10 -c "PdfReader(Handshake_Lab2 (1).pdf)"
+Result: 7 pages extracted; rubric total 40 points. No repository changes.
+
+2026-11-15 — Backend regression
+Command: .\\.venv312\\Scripts\\python.exe -m pytest -q
+Result: 102 passed, 1 warning. Warning: Starlette/httpx TestClient deprecation.
+
+2026-11-15 — Frontend regression
+Command: npm test -- --run
+Result: 24 passed across 4 test files.
+
+2026-11-15 — Frontend production build
+Command: npm run build
+Result: passed. Vite 8.3.4; output written to frontend/dist by the build.
+
+2026-11-15 — Frontend lint
+Command: npm run lint
+Result: exit 0 with three existing react(set-state-in-effect) warnings in
+frontend/src/pages/CompanyPage.jsx:16, JobsPage.jsx:122, EventsPage.jsx:40.
+
+2026-11-15 — Agent harness
+Command: py -3.12 -m backend.agent_harness
+Result: production-agent-modules, 10 passed, 0 failed.
+
+2026-11-15 — Python and diff checks
+Commands: py -3.12 -m compileall -q backend; git diff --check
+Result: compilation passed; diff check passed. Git reported line-ending warnings only.
+
+2026-11-15 — Docker runtime
+Command: docker version --format '{{.Server.Version}}'
+Result: blocked: permission denied connecting to npipe:////./pipe/dockerDesktopLinuxEngine.
+No Docker containers, volumes, databases, Kafka topics, or networks were changed.
+
+2026-11-15 — Browser runtime
+Result: no browser automation evidence captured in this execution. Manual capture remains required.
+
+Historical evidence is referenced by its original documents and is not relabeled as current runtime evidence.
+
+2026-11-15 — Final local verification pass
+Commands: .\\.venv312\\Scripts\\python.exe -m pytest -q; npm test -- --run;
+npm run build; npm run lint; py -3.12 -m compileall -q backend performance/tools;
+git diff --check
+Result: backend 102 passed/1 warning; frontend 24 passed; build passed; lint
+exit 0 with the three known React effect warnings; compilation and diff check passed.
+
+2026-11-15 — Batch 7 Compose recheck
+Commands: docker compose ... -p p09-performance-batch7 ps/config --quiet
+Result: blocked before service inspection because DB_PASSWORD, DB_ROOT_PASSWORD,
+and JWT_SECRET were absent from the Codex process environment. Values were not
+printed, requested, or written. Preserved initial runtime evidence remains under
+docs/evidence/00_overview/ and was not overwritten.
+2026-11-15 service-boundary/deployment preparation
+  .venv312\Scripts\python.exe -m pytest -q backend/tests/test_service_entrypoint.py backend/tests/test_config.py
+  Result: 4 passed, 1 pytest cache warning.
+  .venv312\Scripts\python.exe -m pytest -q backend/tests
+  Result: 104 passed, 1 Starlette/httpx deprecation warning.
+  frontend: npm test -- --run
+  Result: 24 passed in 4 files.
+  frontend: npm run build
+  Result: passed with Vite 8.3.4.
+  frontend: npm run lint
+  Result: exit 0; three existing React effect warnings.
+  .venv312\Scripts\python.exe -m compileall -q backend/app backend/tests
+  Result: passed.
+  Static YAML parse: docker-compose.yml and k8s/*.yaml
+  Result: passed. Docker and Kubernetes runtime were not invoked.

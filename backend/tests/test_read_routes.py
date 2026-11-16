@@ -7,6 +7,72 @@ from backend.app.routes import applications
 client = TestClient(main.app)
 
 
+def test_student_can_upload_valid_pdf_and_company_cannot(monkeypatch, tmp_path):
+    monkeypatch.setattr(applications, "RESUME_DIR", tmp_path)
+    valid_pdf = b"%PDF-1.7\nresume"
+
+    main.app.dependency_overrides[get_authenticated_user] = lambda: {"id": 4, "role": "student"}
+    try:
+        response = client.post(
+            "/applications/resume",
+            files={"file": ("resume.pdf", valid_pdf, "application/pdf")},
+        )
+    finally:
+        main.app.dependency_overrides.clear()
+
+    assert response.status_code == 201
+    assert response.json()["message"] == "Resume uploaded"
+    stored_files = list(tmp_path.glob("4_*.pdf"))
+    assert len(stored_files) == 1
+    assert stored_files[0].read_bytes() == valid_pdf
+
+    main.app.dependency_overrides[get_authenticated_user] = lambda: {"id": 9, "role": "company"}
+    try:
+        company_response = client.post(
+            "/applications/resume",
+            files={"file": ("resume.pdf", valid_pdf, "application/pdf")},
+        )
+    finally:
+        main.app.dependency_overrides.clear()
+    assert company_response.status_code == 403
+
+
+def test_unauthenticated_user_cannot_upload_resume():
+    response = client.post(
+        "/applications/resume",
+        files={"file": ("resume.pdf", b"%PDF-1.7\nresume", "application/pdf")},
+    )
+    assert response.status_code == 401
+
+
+def test_resume_upload_rejects_wrong_type_signature_and_size_without_replacing_files(monkeypatch, tmp_path):
+    monkeypatch.setattr(applications, "RESUME_DIR", tmp_path)
+    existing = tmp_path / "4_existing.pdf"
+    existing.write_bytes(b"%PDF-1.7\nexisting")
+    main.app.dependency_overrides[get_authenticated_user] = lambda: {"id": 4, "role": "student"}
+    try:
+        wrong_type = client.post(
+            "/applications/resume",
+            files={"file": ("resume.pdf", b"%PDF-1.7\ncontent", "text/plain")},
+        )
+        wrong_signature = client.post(
+            "/applications/resume",
+            files={"file": ("resume.pdf", b"not a pdf", "application/pdf")},
+        )
+        oversized = client.post(
+            "/applications/resume",
+            files={"file": ("resume.pdf", b"%PDF-1.7\n" + b"x" * (applications.MAX_RESUME_SIZE + 1), "application/pdf")},
+        )
+    finally:
+        main.app.dependency_overrides.clear()
+
+    assert wrong_type.status_code == 400
+    assert wrong_signature.status_code == 400
+    assert oversized.status_code == 413
+    assert existing.read_bytes() == b"%PDF-1.7\nexisting"
+    assert list(tmp_path.glob("4_*.pdf")) == [existing]
+
+
 def test_jobs_include_filtered_total_metadata_without_changing_default_shape(monkeypatch):
     calls = []
 

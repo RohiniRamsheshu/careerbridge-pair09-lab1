@@ -13,7 +13,7 @@ from backend.app.events.outbox import enqueue_event, make_event
 
 router = APIRouter(prefix="/applications", tags=["Applications"])
 
-RESUME_DIR = Path("backend/uploads/resumes")
+RESUME_DIR = Path(config.RESUME_DIR)
 RESUME_DIR.mkdir(parents=True, exist_ok=True)
 MAX_RESUME_SIZE = 5 * 1024 * 1024
 ALLOWED_STATUSES = {"Reviewed", "Declined"}
@@ -74,6 +74,8 @@ async def upload_resume(
 
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF resumes are allowed")
+    if (file.content_type or "").lower() != "application/pdf":
+        raise HTTPException(status_code=400, detail="Resume content type must be application/pdf")
 
     content = await file.read(MAX_RESUME_SIZE + 1)
 
@@ -85,7 +87,10 @@ async def upload_resume(
 
     filename = f"{user['id']}_{uuid4().hex}.pdf"
     destination = RESUME_DIR / filename
-    destination.write_bytes(content)
+    try:
+        destination.write_bytes(content)
+    except OSError:
+        raise HTTPException(status_code=500, detail="Resume could not be stored")
 
     return {
         "resume_path": str(destination).replace("\\", "/"),

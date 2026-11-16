@@ -28,12 +28,23 @@ def run_event_worker(topics, group_id):
     repository = MongoRepository() if config.MONGO_URI else None
 
     def handle(envelope):
-        if not record_processed_event(envelope):
+        claimed = record_processed_event(envelope)
+        if not claimed:
+            logger.info(
+                "kafka_event_processed topic=%s event_type=%s event_id=%s trace_id=%s aggregate_id=%s outcome=duplicate",
+                envelope.topic, envelope.topic, envelope.event_id, envelope.trace_id,
+                envelope.aggregate_id,
+            )
             return
         if envelope.topic == topic_name("memory.updated"):
             publish_event("memory.consolidate", envelope.aggregate_id, "student_memory", {"student_user_id": envelope.aggregate_id})
         elif envelope.topic == topic_name("memory.consolidate") and repository is not None:
             consolidate_student(repository, envelope.aggregate_id)
+        logger.info(
+            "kafka_event_processed topic=%s event_type=%s event_id=%s trace_id=%s aggregate_id=%s outcome=claimed",
+            envelope.topic, envelope.topic, envelope.event_id, envelope.trace_id,
+            envelope.aggregate_id,
+        )
 
     run_kafka_consumer(
         [topic_name(topic) for topic in topics],

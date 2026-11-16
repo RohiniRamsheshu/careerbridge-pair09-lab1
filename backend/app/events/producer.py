@@ -1,9 +1,9 @@
-"""Best-effort post-commit Kafka publisher.
+"""Kafka producer and dead-letter publisher.
 
-The current Lab 1 schema has no outbox table, so this publisher is deliberately
-called only after the existing database commit succeeds. That preserves API
-behavior and avoids false success events, but it is not an exactly-once or
-lossless outbox guarantee. A transactional outbox is a later migration step.
+Normal business writes use the transactional outbox in ``events.outbox``. The
+legacy ``publish_event`` helper remains an explicitly opt-in, post-commit
+best-effort compatibility path for workflows that do not yet enqueue an outbox
+row; broker failure never turns a committed API write into an API failure.
 """
 
 import logging
@@ -74,9 +74,24 @@ class KafkaEventProducer:
 
     def publish_raw_dlq(self, source_topic, raw_value, error):
         """Route an undecodable message to the source topic's DLQ."""
+        event_id = None
+        trace_id = None
+        aggregate_id = None
+        try:
+            raw_body = json.loads(raw_value) if isinstance(raw_value, str) else raw_value
+            if isinstance(raw_body, dict):
+                event_id = raw_body.get("event_id")
+                trace_id = raw_body.get("trace_id")
+                aggregate_id = raw_body.get("aggregate_id")
+        except (TypeError, json.JSONDecodeError):
+            pass
         payload = {
             "original_raw": str(raw_value)[:10000],
             "source_topic": source_topic,
+            "event_type": source_topic,
+            "event_id": event_id,
+            "trace_id": trace_id,
+            "aggregate_id": aggregate_id,
             "error_type": type(error).__name__,
         }
         producer = self._get_producer()

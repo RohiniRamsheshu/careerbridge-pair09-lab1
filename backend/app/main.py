@@ -17,7 +17,7 @@ from pydantic import BaseModel, EmailStr, Field
 from backend.app.database import get_connection
 from backend.app.auth import get_authenticated_user
 from backend.app.routes.applications import router as applications_router
-from backend.app.agent import run_assistant
+from backend.app.agent import parse_memory_intent, run_assistant
 from backend.app.confirmation import approve_action
 from backend.app.services import student_service
 from backend.app import config
@@ -52,8 +52,8 @@ app.include_router(applications_router)
 
 JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = "HS256"
-UPLOAD_DIR = Path("backend/uploads")
-RESUME_DIR = UPLOAD_DIR / "resumes"
+RESUME_DIR = Path(config.RESUME_DIR)
+UPLOAD_DIR = RESUME_DIR.parent
 PROFILE_DIR = UPLOAD_DIR / "profiles"
 RESUME_DIR.mkdir(parents=True, exist_ok=True)
 PROFILE_DIR.mkdir(parents=True, exist_ok=True)
@@ -1320,6 +1320,12 @@ class AssistantChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
     conversation_id: str | None = Field(default=None, max_length=100)
 
+
+class AssistantMemoryWriteRequest(BaseModel):
+    memory_key: str = Field(pattern=r"^[a-z][a-z0-9_]{1,79}$", max_length=80)
+    value: str = Field(min_length=1, max_length=500)
+    kind: str = Field(default="fact", pattern=r"^[a-z][a-z0-9_-]{1,39}$", max_length=40)
+
 class AssistantConfirmationRequest(BaseModel):
     action_id: str = Field(min_length=20, max_length=200)
     approved: bool
@@ -1340,6 +1346,28 @@ def get_memory_repository():
             return None
     return _memory_repository
 
+
+@app.post("/assistant/memory", tags=["Assistant"], status_code=201)
+def write_assistant_memory(
+    request: AssistantMemoryWriteRequest,
+    user=Depends(get_authenticated_user),
+):
+    require_role(user, "student")
+    memory_repository = get_memory_repository()
+    if memory_repository is None:
+        raise HTTPException(status_code=503, detail="Memory storage is unavailable in this environment")
+    memory = memory_repository.save_explicit_memory(
+        user["id"], request.memory_key, request.value, request.kind,
+    )
+    return {
+        "status": "stored",
+        "memory": {
+            "memory_key": memory.get("memory_key", request.memory_key),
+            "value": memory.get("value", request.value),
+            "kind": memory.get("kind", request.kind),
+            "active": bool(memory.get("active", True)),
+        },
+    }
 @app.post("/assistant/chat", tags=["Assistant"])
 def assistant_chat(
     request: AssistantChatRequest,

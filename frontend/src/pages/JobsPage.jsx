@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { NavLink } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { loadApplications as loadApplicationsThunk, loadJobs as loadJobsThunk, loadSavedItems } from "../store/slices.js";
 import {
@@ -30,6 +31,7 @@ const [applicationError, setApplicationError] = useState("");
 const [applications, setApplications] = useState([]);
 const [applicationsError, setApplicationsError] = useState("");
 const [applicationsLoading, setApplicationsLoading] = useState(true);
+const [resumeRequired, setResumeRequired] = useState(false);
 const [applicationStatus, setApplicationStatus] = useState("All");
 const [detailsLoading, setDetailsLoading] = useState(false);
 const [detailsError, setDetailsError] = useState("");
@@ -180,8 +182,10 @@ const filteredJobs = useMemo(() => {
   }
   async function applyToJob(job) {
     setApplicationError("");
+    setResumeRequired(false);
     if (!resumes.length) {
       setApplicationError("Upload a PDF resume in your profile before applying.");
+      setResumeRequired(true);
       return;
     }
     try {
@@ -247,7 +251,7 @@ const filteredJobs = useMemo(() => {
     {loading && <p className="subtitle">Loading jobs...</p>}
 
 {error && <div className="error-message">{error}</div>}
-      {applicationError && <div className="error-message">Application failed: {applicationError}</div>}
+      {applicationError && <div className="error-message">Application failed: {applicationError}{resumeRequired && <NavLink className="inline-link" to="/profile">Go to Profile to upload a PDF resume</NavLink>}</div>}
       {detailsError && <div className="error-message">Job details failed: {detailsError}</div>}
 
       <p className="result-count">

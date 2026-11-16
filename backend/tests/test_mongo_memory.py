@@ -1,9 +1,11 @@
 from types import SimpleNamespace
 from datetime import date, time, timedelta
 from decimal import Decimal
+from dataclasses import dataclass
 
 from backend.app.memory_consolidation import consolidate_student, seed_synthetic_memories
 from backend.app.mongo_migration import _json_safe
+from backend.app.mongo_repository import DEFAULT_ASSISTANT_RULES, MongoRepository
 
 
 class FakeCollection:
@@ -15,6 +17,48 @@ class FakeCollection:
         for item in self.repo.docs:
             if item["_id"] in ids:
                 item.update(update["$set"])
+
+
+class FakeRulesCollection:
+    def __init__(self):
+        self.docs = {}
+
+    @dataclass
+    class Result:
+        upserted_id: object = None
+
+    def update_one(self, selector, update, upsert=False):
+        key = selector["rule_key"]
+        if key in self.docs:
+            return self.Result()
+        if not upsert:
+            return self.Result()
+        self.docs[key] = dict(update["$setOnInsert"])
+        return self.Result(upserted_id=key)
+
+
+class FakeExplicitMemoryCollection:
+    @dataclass
+    class Result:
+        upserted_id: object = None
+
+    def __init__(self):
+        self.docs = []
+
+    def update_one(self, selector, update, upsert=False):
+        for document in self.docs:
+            if all(document.get(key) == value for key, value in selector.items()):
+                document.update(update["$set"])
+                return self.Result()
+        if upsert:
+            document = {**update["$setOnInsert"], **update["$set"]}
+            document["_id"] = len(self.docs) + 1
+            self.docs.append(document)
+            return self.Result(upserted_id=document["_id"])
+        return self.Result()
+
+    def find_one(self, selector):
+        return next((document for document in self.docs if all(document.get(key) == value for key, value in selector.items())), None)
 
 
 class FakeRepo:
@@ -39,6 +83,12 @@ class FakeRepo:
 def test_synthetic_memory_consolidates_to_fewer_than_40_active_entries():
     repo = FakeRepo()
     seed_synthetic_memories(repo, 11, total=60)
+
+    grouped = {}
+    for item in repo.docs:
+        grouped.setdefault(item["memory_key"], []).append(item["value"])
+    assert sum(len(items) > 1 for items in grouped.values()) >= 3
+    assert sum(len(set(items)) > 1 for items in grouped.values()) >= 3
 
     result = consolidate_student(repo, 11)
 
@@ -70,3 +120,58 @@ def test_memory_retrieval_is_scoped_to_authenticated_student():
 
     assert [item["value"] for item in repo.relevant_memory(11)] == ["San Jose"]
     assert [item["value"] for item in repo.relevant_memory(12)] == ["Palo Alto"]
+
+
+def make_rule_repository(existing=None):
+    rules = FakeRulesCollection()
+    rules.docs.update(existing or {})
+    repository = MongoRepository.__new__(MongoRepository)
+    repository.db = SimpleNamespace(assistant_rules=rules)
+    return repository, rules
+
+
+def test_default_assistant_rules_first_invocation_inserts_all_defaults():
+    repository, rules = make_rule_repository()
+
+    assert repository.ensure_default_rules() == len(DEFAULT_ASSISTANT_RULES)
+    assert set(rules.docs) == {item["rule_key"] for item in DEFAULT_ASSISTANT_RULES}
+
+
+def test_default_assistant_rules_second_invocation_inserts_zero():
+    repository, rules = make_rule_repository()
+
+    repository.ensure_default_rules()
+    assert repository.ensure_default_rules() == 0
+    assert set(rules.docs) == {item["rule_key"] for item in DEFAULT_ASSISTANT_RULES}
+
+
+def test_default_assistant_rules_preserve_customized_existing_rule():
+    key = DEFAULT_ASSISTANT_RULES[0]["rule_key"]
+    custom = {key: {"rule_key": key, "text": "Custom privacy policy", "active": True}}
+    repository, rules = make_rule_repository(custom)
+
+    assert repository.ensure_default_rules() == len(DEFAULT_ASSISTANT_RULES) - 1
+    assert rules.docs[key]["text"] == "Custom privacy policy"
+
+
+def test_default_assistant_rules_insert_only_missing_defaults():
+    existing = {item["rule_key"]: dict(item) for item in DEFAULT_ASSISTANT_RULES[:2]}
+    repository, rules = make_rule_repository(existing)
+
+    assert repository.ensure_default_rules() == 1
+    assert set(rules.docs) == {item["rule_key"] for item in DEFAULT_ASSISTANT_RULES}
+
+
+def test_explicit_memory_upsert_updates_same_key_without_duplicate_active_records(monkeypatch):
+    collection = FakeExplicitMemoryCollection()
+    repository = MongoRepository.__new__(MongoRepository)
+    repository.db = SimpleNamespace(student_memory=collection)
+    monkeypatch.setattr("backend.app.mongo_repository.config.KAFKA_ENABLED", False)
+
+    first = repository.save_explicit_memory(12, "preferred_project_name", "CareerBridge Demo", "preference")
+    second = repository.save_explicit_memory(12, "preferred_project_name", "CareerBridge Demo 2", "preference")
+
+    assert first["student_user_id"] == 12
+    assert second["value"] == "CareerBridge Demo 2"
+    assert len(collection.docs) == 1
+    assert collection.docs[0]["active"] is True
