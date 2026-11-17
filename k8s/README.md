@@ -17,7 +17,7 @@ kubectl apply --dry-run=client -f k8s/storage-and-ingress.yaml
 ```
 
 Create the runtime Secret outside Git using the commands in
-`k8s/secret.example.yaml`. Replace `:local` image tags with approved ECR URIs
+`k8s/secret.example.yaml`. The Kubernetes manifests reference the approved ECR images for the p09-careerbridge services.
 before deployment. Build the frontend with `-ApiUrl` set to the public API
 LoadBalancer/Ingress URL because the browser cannot resolve internal Kubernetes
-DNS names. No Kubernetes cluster was accessed during preparation.
+DNS names. No Kubernetes cluster was accessed during manifest preparation.

@@ -5,60 +5,137 @@ metadata:
   namespace: p09-careerbridge
 spec:
   replicas: 1
-  selector: { matchLabels: { app: p09-api } }
+  selector:
+    matchLabels:
+      app: p09-api
   template:
-    metadata: { labels: { app: p09-api } }
+    metadata:
+      labels:
+        app: p09-api
     spec:
       containers:
         - name: api
-          image: p09-careerbridge/backend:local
+          image: 491740041541.dkr.ecr.us-east-2.amazonaws.com/p09-careerbridge/backend:v3
           imagePullPolicy: IfNotPresent
-          ports: [{ name: http, containerPort: 9090 }]
-          envFrom: [{ configMapRef: { name: p09-careerbridge-config } }, { secretRef: { name: p09-careerbridge-secrets } }]
-          volumeMounts: [{ name: p09-resume-data, mountPath: /app/backend/uploads/resumes }]
-          resources: { requests: { cpu: 200m, memory: 384Mi }, limits: { cpu: 1, memory: 1Gi } }
-          readinessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 5, periodSeconds: 10 }
-          livenessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 15, periodSeconds: 20 }
-      volumes: [{ name: p09-resume-data, persistentVolumeClaim: { claimName: p09-resume-data } }]
+          ports:
+            - name: http
+              containerPort: 9090
+          envFrom:
+            - configMapRef:
+                name: p09-careerbridge-config
+            - secretRef:
+                name: p09-careerbridge-secrets
+          volumeMounts:
+            - name: p09-resume-data
+              mountPath: /app/backend/uploads/resumes
+          resources:
+            requests:
+              cpu: 200m
+              memory: 384Mi
+            limits:
+              cpu: 1
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      volumes:
+        - name: p09-resume-data
+          persistentVolumeClaim:
+            claimName: p09-resume-data
 ---
 apiVersion: v1
 kind: Service
-metadata: { name: p09-api, namespace: p09-careerbridge }
+metadata:
+  name: p09-api
+  namespace: p09-careerbridge
 spec:
   type: LoadBalancer
-  selector: { app: p09-api }
-  ports: [{ name: http, port: 9090, targetPort: http }]
+  selector:
+    app: p09-api
+  ports:
+    - name: http
+      port: 9090
+      targetPort: http
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: { name: p09-worker, namespace: p09-careerbridge }
+metadata:
+  name: p09-worker
+  namespace: p09-careerbridge
 spec:
   replicas: 1
-  selector: { matchLabels: { app: p09-worker } }
+  selector:
+    matchLabels:
+      app: p09-worker
   template:
-    metadata: { labels: { app: p09-worker } }
+    metadata:
+      labels:
+        app: p09-worker
     spec:
       containers:
         - name: worker
-          image: p09-careerbridge/backend:local
+          image: 491740041541.dkr.ecr.us-east-2.amazonaws.com/p09-careerbridge/backend:v3
           imagePullPolicy: IfNotPresent
-          command: ["python", "-m", "backend.app.events.worker"]
-          envFrom: [{ configMapRef: { name: p09-careerbridge-config } }, { secretRef: { name: p09-careerbridge-secrets } }]
-          resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
+          command:
+            - python
+            - -m
+            - backend.app.events.worker
+          envFrom:
+            - configMapRef:
+                name: p09-careerbridge-config
+            - secretRef:
+                name: p09-careerbridge-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: { name: p09-outbox-worker, namespace: p09-careerbridge }
+metadata:
+  name: p09-outbox-worker
+  namespace: p09-careerbridge
 spec:
   replicas: 1
-  selector: { matchLabels: { app: p09-outbox-worker } }
+  selector:
+    matchLabels:
+      app: p09-outbox-worker
   template:
-    metadata: { labels: { app: p09-outbox-worker } }
+    metadata:
+      labels:
+        app: p09-outbox-worker
     spec:
       containers:
         - name: outbox-worker
-          image: p09-careerbridge/backend:local
+          image: 491740041541.dkr.ecr.us-east-2.amazonaws.com/p09-careerbridge/backend:v3
           imagePullPolicy: IfNotPresent
-          command: ["python", "-m", "backend.app.events.worker", "--mode", "outbox"]
-          envFrom: [{ configMapRef: { name: p09-careerbridge-config } }, { secretRef: { name: p09-careerbridge-secrets } }]
-          resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
+          command:
+            - python
+            - -m
+            - backend.app.events.worker
+            - --mode
+            - outbox
+          envFrom:
+            - configMapRef:
+                name: p09-careerbridge-config
+            - secretRef:
+                name: p09-careerbridge-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
